@@ -10,10 +10,14 @@ library(tidyverse)
 
 
 #2. import datasets ---------------------------------
+#texture data
 texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
 #write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
 
-#3. clean texture_data
+#pH
+pH_data <- read.xlsx("./01_input/lab_resultate_bern.xlsx",sheet = 1)
+
+#3. clean texture_data#####
 #Simplify sample name and set column data types
 texture_data <- texture_data %>%
   mutate(Sample.Name = str_replace(Sample.Name,"Z",""),
@@ -35,3 +39,11 @@ texture_data_important_averaged <- texture_data_important %>%
 
 saveRDS(texture_data_important_averaged,"./01_input/texture_averaged_clean.rds")
 
+#4. clean pH Data#######
+pH_data_clean <- pH_data %>% 
+  select(-c(2,4:7)) %>% 
+  rename(sample_name = Sample) %>%
+  mutate(sample_name = str_replace(sample_name,"Z","")) %>% 
+  filter(!str_starts(sample_name,"Blank"))
+
+saveRDS(pH_data_clean,"./01_input/pH_data_clean.rds")
