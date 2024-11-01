@@ -11,7 +11,7 @@ library(tidyverse)
 
 #2. import datasets ---------------------------------
 texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
-write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
+#write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
 
 #3. clean texture_data
 #Simplify sample name and set column data types
