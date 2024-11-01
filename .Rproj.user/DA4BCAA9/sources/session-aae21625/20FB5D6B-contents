@@ -1,0 +1,323 @@
+#----------------Rcode for SPRINT Datacleaning 13.08.23------------------------------------#
+#---------Code by Florian Christ CSS4 University of Bern-----------------------------------#
+#-Inspiration for the code derived from scripts from Natacha van Groenigen and Lingtong Gai#
+#-Used Data from common folder -> 10.08.2023-----------------------------------------------#
+#-Code developed and used with R-Version 4.2.2---------------------------------------------#
+#-Code provides clean PPP-measurement-results.!! all measurements in mikrogramm/kg despite measurements in fluids ng/l#
+
+#------------------------------------------------------------------------------#
+# 1.) Load Libraries ------------------------------------------------------
+#------------------------------------------------------------------------------#
+
+library(ISwR) #statistic library "introductory Statistic with R"
+library(MASS) #car data from this library
+library(ggplot2)
+library(Hmisc)
+library(plotly)
+library(plotrix)
+library(gmodels)
+library(dplyr)
+library(viridis)
+library(tidyverse)
+library(dplyr)
+library(FactoMineR)
+library(ade4)
+library(ExPosition)
+library("factoextra")
+library("corrplot")
+library(HDoutliers)
+library("ggpubr")
+library(reshape2)
+library(car)
+library(MASS)
+library(RColorBrewer)
+library(openxlsx)
+library(readxl)
+library(pls)
+library(afex)
+library(lme4)
+library(VGAM)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(ggpattern)
+library(ggforce)
+
+# 2.) Load Data -----------------------------------------------------------
+#Import the frequencies Lists and merge them to one table---------
+files_list_Freq <- list.files("../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/Overview_All_Matrices_All_CSS_C_O",full.names= T)
+
+for (file in files_list_Freq){
+  df <- read.csv(file)
+  filename <- tools::file_path_sans_ext(basename(file))
+  assign(filename,df)
+  
+}
+
+files_list_Freq_name <- tools::file_path_sans_ext(basename(files_list_Freq))
+
+PPP_Freq_summary_all_CSS <- bind_rows(lapply(files_list_Freq_name, get))    #Merge tables occuring in the list
+PPP_Freq_summary_all_CSS <- PPP_Freq_summary_all_CSS[,-1]
+
+PPP_Freq_summary_all_CSS <- as.data.frame(PPP_Freq_summary_all_CSS)    #as data frame
+PPP_names <- names(PPP_Freq_summary_all_CSS)[-c(1:3)]                  #List of PPP_names
+PPP_names_per <- paste0(PPP_names,"_perc")                              #List of PPP_names with addition
+str(PPP_Freq_summary_all_CSS)
+
+EHA <- PPP_Freq_summary_all_CSS$EHA
+
+write.xlsx(PPP_Freq_summary_all_CSS,"../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/Table_Freq_summary_all_13_11_2023.xlsx")
+# 3.) Calculate total of all observation ----------------------------------
+
+#PPP_Freq_total_values <- PPP_Freq_summary_all_CSS %>% 
+ # dplyr::group_by(Observation) %>% 
+ #dplyr::summarise(across(where(is.numeric), ~sum(.x,na.rm = T))) %>% 
+  #mutate(type = "Total",.before=1)
+  #mutate(EHA = )
+
+# Connect to full table
+#PPP_Freq_summary_all_CSS <- PPP_Freq_summary_all_CSS %>% 
+ # bind_rows(PPP_Freq_total_values)
+
+#PPP_Freq_summary_all_CSS <- PPP_Freq_summary_all_CSS %>% 
+ # dplyr::arrange()
+
+
+#4.) Prepare Data for percentage calculation using pivot wider--------
+Freq_All_C_O <- PPP_Freq_summary_all_CSS %>%
+  mutate(type = ifelse(is.na(type), "NA", type)) %>% 
+  pivot_wider(
+    id_cols = EHA:Observation,
+    names_from = type,
+    names_sep = "_",
+    values_from = PPP_names
+  )
+Freq_All_C_O <- as.data.frame(Freq_All_C_O)
+
+
+#write.xlsx(Freq_All_C_O,"./Frequency_of_Occurence/Table_Freq_summary_Rel_calculations.xlsx")
+
+
+Freq_All_C_O[is.na(Freq_All_C_O)] <- 0
+str(Freq_All_C_O)
+
+
+#5.2) Calculate relative Frequencies for each PPP#######################3
+
+Freq_Rel_C_O <- data.frame(Freq_All_C_O[,1:2])
+
+for (i in PPP_names) {
+ 
+  #Edit data frame containing all absolute vlaues of one PPP
+  one_PPP <- Freq_All_C_O %>%
+    dplyr::select(starts_with(paste0(i, "_"))) %>% 
+    dplyr::select(c(1:3,7:9)) %>% 
+    mutate(total_analysed = rowSums(.))
+  
+  # Edit all vectors for detected frequencies 
+  detected_Na <- (one_PPP[,3])
+  detected_conventional <- one_PPP[, 1]
+  detected_organic <- one_PPP[,2]
+  
+  
+  #Edit all vectors for ND frequencies
+  Nd_Na <- one_PPP[,6]
+  Nd_conventional <- one_PPP[,4]
+  Nd_organic <- one_PPP[,5]
+  
+  #Edit Vector containing total observations
+  total <- (one_PPP[,7])
+  
+  #Edit data frame containing the relative values of i
+  summary <- data.frame(a = round((detected_Na/total)*100,2), 
+                        b = (detected_conventional/total)*100, 
+                        c = (detected_organic/total)*100,
+                        d = (Nd_Na/total)*100,
+                        e = (Nd_conventional/total)*100,
+                        f = (Nd_organic/total)*100,
+                        g = total)
+                        
+                        
+  #rename columnnames                    
+  colnames(summary) <-(c (paste0(i, "_perc_detected_Na"), 
+                         paste0(i, "_perc_detected_conventional"), 
+                         paste0(i, "_perc_detected_organic"),
+                         paste0(i, "_perc_Nd_Na"), 
+                         paste0(i, "_perc_Nd_conventional"), 
+                         paste0(i, "_perc_Nd_organic"),
+                         paste0(i, "_total")))
+  
+  
+  
+  Freq_Rel_C_O <- add_column(Freq_Rel_C_O,summary)
+
+}
+
+write.xlsx(Freq_Rel_C_O,"../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/Table_Freq_Rel_tot_per_PPP_13_11_2023.xlsx")
+
+
+
+
+
+
+# 6.) Generate table ready for figures containing relative values ------------------------------------
+
+
+Freq_Rel_C_O <- as.data.frame(Freq_Rel_C_O)
+
+Rel_names <- colnames(Freq_Rel_C_O)
+
+
+Freq_Rel_C_O_plot <-  Freq_Rel_C_O %>% 
+  pivot_longer(
+  cols = starts_with(PPP_names_per),
+  names_to = c("PPP","Detection Status","Farmtype"),
+  names_pattern = "^(.*?)_perc_(Na|Nd|detected)_(Na|conventional|organic)$",
+  values_to = "Fraction %" ) %>% 
+  relocate(220:223,.after = 2)
+
+unique(Freq_Rel_C_O_plot$Observation)
+# Rename column Observation by adding total of Observations per Matrix.20.09.2023
+
+
+Freq_Rel_C_O_plot$Observation <- sub("Indoor dust","Indoor Dust",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Outdoor Air/Dust","Air",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Sediment","Sediment",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Water","Water",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Earthworm","Earthworm",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Plant","Plant",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("soil","Soil",Freq_Rel_C_O_plot$Observation)
+
+Freq_Rel_C_O_plot$Observation <- sub("Consumer_Faeces","Consumer_Faeces",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Consumer_Wristband","Consumer_Wristband",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Consumer_Plasma","Consumer_Plasma",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Consumer_Urine","Consumer_Urine",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Neighbour_Faeces","Neighbour_Faeces",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Neighbour_Wristband","Neighbour_Wristband",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Neighbour_Plasma","Neighbour_Plasma",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Neighbour_Urine","Neighbour_Urine",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Farmer_Faeces","Farmer_Faeces",Freq_Rel_C_O_plot$Observation)
+Freq_Rel_C_O_plot$Observation <- sub("Farmer_Wristband","Farmer_Wristband",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Farmer_Plasma","Farmer_Plasma",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Farmer_Urine","Farmer_Urine",Freq_Rel_C_O_plot$Observation)	
+
+Freq_Rel_C_O_plot$Observation <- sub("Wristband$","Wristband",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Faeces$","Faeces",Freq_Rel_C_O_plot$Observation) 
+Freq_Rel_C_O_plot$Observation <- sub("Feed$","Feed",Freq_Rel_C_O_plot$Observation)	
+Freq_Rel_C_O_plot$Observation <- sub("Urine$","Urine",Freq_Rel_C_O_plot$Observation)	
+
+Freq_Rel_C_O_plot <- Freq_Rel_C_O_plot %>%
+  mutate(`Fraction %` = ifelse(is.nan(`Fraction %`), 0, `Fraction %`))
+
+
+for (i in  1:nrow(Freq_Rel_C_O_plot)){
+    obs_namer <- Freq_Rel_C_O_plot %>% 
+      dplyr::select(starts_with(paste0(Freq_Rel_C_O_plot[i,3], "_")))
+      
+    Freq_Rel_C_O_plot[i,2] <- paste0(Freq_Rel_C_O_plot[i,2]," (n=",obs_namer[i,1],")")
+}
+
+
+
+
+
+
+
+# 6.5) Function for Table cleaning ----------------------------------------
+unique(Freq_Rel_C_O_plot)
+Cleaner <- function(df){
+  df <- as.data.frame(df) 
+  colnames(df) <- c("EHA","Observation","PPP","Detection_Status","Farmtype","Fraction")
+  
+  #Rename variables in columns:
+  df$Observation <- sub("_"," ", df$Observation) #change sepearator to space #change Na to Not Analysed
+  df$Detection_Status <- sub("detected","Detected",df$Detection_Status)
+  df$Detection_Status <- sub("Nd","Not Detected",df$Detection_Status)
+  df$Farmtype <- sub("Na","FS Not Defined",df$Farmtype)
+  df$Farmtype <- sub("conventional","Conventional",df$Farmtype)
+  df$Farmtype <- sub("organic","Organic",df$Farmtype)
+  
+  #Combine Detection_Status with Farmtype
+  df <- df %>% 
+    unite(Detection_Farmtype,c(Detection_Status,Farmtype),sep = " / ",remove=TRUE)
+ 
+  
+}
+
+# 7.1) Function for Figures of Frequency ----------------------------------
+Plot_of_Freq <- function(df){
+#Create Figure of Frequencies
+ggplot(df, aes(x=Observation ,
+  y= Fraction, fill=factor(Detection_Farmtype,levels = rev(c("Detected / Conventional","Detected / Organic","Detected / FS Not Defined",
+                                                                                           "Not Detected / Conventional", "Not Detected / Organic", "Not Detected / FS Not Defined"))))) + 
+  geom_bar(stat = "identity", position = "stack")+
+  scale_fill_manual(values = rev(c("#D95C03", "#ED915C", "#F2C49E", "#08994E", "#2DD682", "#9EDBBD")))+
+  ggtitle("Glyphosate occurence > LOD")+
+  labs(y = "Fraction in %", x = "Analysed Matrix", fill ="Detection / Farming System")+
+  theme_minimal()+
+theme(legend.title = ,
+      legend.position = "right", 
+      axis.title.y = element_text(margin = margin(r = 20)), 
+      axis.text.x = element_text(angle = 0), 
+      axis.text.y = element_text(angle = 0))+
+  facet_col(vars(EHA), scales = "free", space ="free")+
+  guides(fill = guide_legend(reverse = TRUE))+
+  coord_flip()
+}
+
+
+# 8.) Generate Figures of the most frequently found PPP as well as corresponding table ####################
+#get List with the most frequently detected compounds
+Detection_Frequency_PPP <- read_excel("../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/PPP_Freq_Overview_All_samples_13_11_23.xlsx",sheet = 1)
+Detection_Frequency_PPP <- as.data.frame(Detection_Frequency_PPP[-c(1,2),])
+
+PPP_names_20_most_freq <- Detection_Frequency_PPP[1:25,1]
+
+
+
+current_date <- substr(Sys.Date(),1,10)
+current_date <- gsub("-","_",current_date)
+
+for (i in PPP_names_20_most_freq){
+
+  #Clean PPP Name
+  a <- i
+  a <- gsub(" ","_",a)
+  a <- gsub("-","_",a)
+  a <- gsub(",","_",a)
+  a <- gsub(")$","",a)
+  a <- gsub(":","",a)
+  a <- substr(a,1,20)
+  
+  
+  
+  #prepare name variables
+  rel_table_PPP_name <- paste0("../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/Figures_Tables_Frequency_of_Occurence/","Rel_",a,"_",current_date,"_","_plot_table.xlsx")
+  Freq_plot_title <- paste0(i," Occurence > LOD")
+  filename <- paste0("../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/Figures_Frequency_of_Occurence/","Figure_Occurence_",a,"_",current_date,"_","_LOD.png")
+  
+  #Create PPP specific plot table
+  df <-  Freq_Rel_C_O_plot[,1:6] %>% 
+    filter(PPP == i) %>% 
+    ungroup()
+ 
+  #clean the plot table
+  df <-  Cleaner(df)
+  
+  #Make EHA a factor column in order to decide order of appearence in plot
+  df$EHA = factor(df$EHA, levels = c("Environment","Human","Animal"))
+  
+  #safe table
+  write.xlsx(df,rel_table_PPP_name)
+  
+  
+  Freq_plot <- Plot_of_Freq(df)+ggtitle(Freq_plot_title)
+  
+  ggsave(filename,Freq_plot,width = 28,height = 12,units = "cm",bg="white") 
+  
+  
+    
+  
+}
+
