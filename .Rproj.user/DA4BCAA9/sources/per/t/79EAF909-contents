@@ -1,0 +1,8 @@
+#script for soil texture analysis
+
+
+#the soiltexture packages was no more available on cran. Therefore, package had to be downloaded from github
+install.packages("devtools")
+install.packages("soiltexture")
+
+install.packages("soiltexture_master", repos = 0, type = "source")
