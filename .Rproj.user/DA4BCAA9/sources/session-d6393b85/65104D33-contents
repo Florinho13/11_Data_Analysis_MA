@@ -1,0 +1,169 @@
+---
+title: "Penguin Analysis"
+title-block-banner: "#f0f3f5"
+title-block-banner-color: "blue"
+author: "Florian Christ"
+affiliation: "Unabhängig"
+email: florian.chrst@students.unibe.ch
+format: html
+editor: visual
+code-fold: true
+code-summary: "Show the code"
+fig-cap-location: margin
+toc: true
+number-sections: true
+
+css: style.css
+---
+
+## Introduction
+
+Data originates from here [penguin source](https://allisonhorst.github.io/palmerpenguins/) Basic analysis of the **penguin dataset using** **R Quarto** with **tidyverse**. The course was quite fun. Only thing frustrating is the jump off of the course with each click on a within course link.
+
+```{r, warning=FALSE,message=FALSE}
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(DT)
+library(knitr)
+library(plotly)
+library(FactoMineR) 
+
+citation("tidyverse")
+```
+
+::: callout-note
+Sepp isch an cooler Kerli!
+:::
+
+## Data and functions Loading
+
+```{r}
+# load all functions used in the script.
+source(file = "functions.R")
+
+
+cleaned_data <- readRDS(file = "../input/clean_data.rds")
+
+summary(cleaned_data)
+datatable(cleaned_data)
+```
+
+![Bill meassurement explanation](asset/culmen_depth.png){width="300"}
+
+## descriptive analysis
+
+```{r}
+#| layout-ncol: 2
+
+mean_bill_species <- cleaned_data %>%
+  dplyr::group_by(species) %>%
+  summarize(
+    mean_bill_length_mm = mean(bill_length_mm, na.rm = TRUE),
+    mean_bill_depth_mm = mean(bill_depth_mm, na.rm = TRUE)
+  )
+
+# Figure representing mean bill length per species
+mean_bill_length_species <- ggplot(
+  mean_bill_species,
+  aes(
+    x = species, y = mean_bill_length_mm,
+    colour = species
+  )
+) +
+  geom_point() +
+  ggtitle("Mean bill length per species")
+
+# Figure representing mean bill depth per species
+mean_bill_depth_species <- ggplot(
+  mean_bill_species,
+  aes(
+    x = species, y = mean_bill_depth_mm,
+    colour = species
+  )
+) +
+  geom_point() +
+  ggtitle("Mean bill depth per species")
+
+
+mean_bill_length_species + mean_bill_depth_species
+
+kable(mean_bill_species)
+```
+
+```{r,fig.align='center',fig.width=9,fig.height=3}
+Adelie_bill <- create_scatter_plot_species(cleaned_data, "Adelie", "#7DD9F0")
+Chinstrap_bill <- create_scatter_plot_species(cleaned_data, "Chinstrap", "#97E391")
+Gentoo_bill <- create_scatter_plot_species(cleaned_data, "Gentoo", "#F59649")
+
+Adelie_bill + Chinstrap_bill + Gentoo_bill
+```
+
+```{r,fig.width=6,fig.height=6,fig.align='center'}
+#| layout-ncol: 2
+
+print(round(mean(subset(na.omit(cleaned_data), species == "Adelie" & island == "Torgersen")$bill_length_mm), 2))
+print(round(mean(subset(na.omit(cleaned_data), species == "Adelie" & island == "Biscoe")$bill_length_mm), 2))
+print(round(mean(subset(na.omit(cleaned_data), species == "Adelie" & island == "Dream")$bill_length_mm), 2))
+
+# Plot
+
+
+penguins_clean <- na.omit(cleaned_data)
+plot(penguins_clean$bill_length_mm, penguins_clean$bill_depth_mm, type = "n", xlab = "Bill Length (mm)", ylab = "Bill Depth (mm)", main = "Penguin Bill Dimensions")
+points(
+  penguins_clean$bill_length_mm[penguins_clean$species == "Adelie"], penguins_clean$bill_depth_mm[penguins_clean$species == "Adelie"],
+  col = "red", pch = 16
+)
+points(penguins_clean$bill_length_mm[penguins_clean$species == "Chinstrap"], penguins_clean$bill_depth_mm[penguins_clean$species == "Chinstrap"], col = "green", pch = 17)
+points(penguins_clean$bill_length_mm[penguins_clean$species == "Gentoo"],
+  penguins_clean$bill_depth_mm[penguins_clean$species == "Gentoo"],
+  col = "blue", pch = 18
+)
+legend("topright",
+  legend = unique(penguins_clean$species),
+  col = c(
+    "red",
+    "green",
+    "blue"
+  ), pch = c(16, 17, 18)
+)
+
+
+
+calc_mean_bill <- function(island_name) {
+  filtered_data <- subset(na.omit(cleaned_data), species == "Adelie" & island == island_name)
+  mean_bill_length <- mean(filtered_data$bill_length_mm)
+  return(round(mean_bill_length, 2))
+}
+
+# Call the function for each island
+calc_mean_bill("Torgersen")
+calc_mean_bill("Biscoe")
+calc_mean_bill("Dream")
+
+multiplicate_by_234 <- function(number) {
+  return(number * 234)
+}
+multiplicate_by_234(311)
+
+sum_2_numbers <- function(a, b) {
+  return(a + b)
+}
+sum_2_numbers(3256, 8934)
+
+
+
+scatter_bill_length_depth(cleaned_data, "Dream", "Adelie")
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

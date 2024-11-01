@@ -9,9 +9,29 @@ library(readr)
 library(tidyverse)
 
 
-#2. transform to .txt to .xlsx ---------------------------------
+#2. import datasets ---------------------------------
 texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
 write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
 
-texture_data <- texture_data
+#3. clean texture_data
+#Simplify sample name and set column data types
+texture_data <- texture_data %>%
+  mutate(Sample.Name = str_replace(Sample.Name,"Z",""),
+         Sample.Name = str_replace(Sample.Name," - ","_"),
+         Sample.Name = as.character(Sample.Name),
+         across(10:44,as.numeric))
+
+#create data frame only containing average values of each MS 2000 measurement
+texture_data_important <- texture_data %>% 
+  select(Record.number,Sample.Name,X0.02μm.2μm,X2μm.63μm,X63μm.2000μm) %>% 
+  filter(str_ends(Sample.Name,"_Average"))
+
+#create data frame that averages the averages of the measurement dupli or triplicates
+texture_data_important_averaged <- texture_data_important %>% 
+  group_by(sample_name = substr(Sample.Name,1,5)) %>% 
+  summarize(clay = mean(X0.02μm.2μm),
+            silt = mean(X2μm.63μm),
+            sand = mean(X63μm.2000μm))
+
+saveRDS(texture_data_important_averaged,"./01_input/texture_averaged_clean.rds")
 

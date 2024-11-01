@@ -9,7 +9,7 @@ library(readr)
 library(tidyverse)
 
 
-#2. transform to .txt to .xlsx ---------------------------------
+#2. import datasets ---------------------------------
 texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
 write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
 
@@ -32,4 +32,6 @@ texture_data_important_averaged <- texture_data_important %>%
   summarize(clay = mean(X0.02μm.2μm),
             silt = mean(X2μm.63μm),
             sand = mean(X63μm.2000μm))
+
+saveRDS(texture_data_important_averaged,"./01_input/texture_averaged_clean.rds")
 
