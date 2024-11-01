@@ -1,8 +1,9 @@
 #script for soil texture analysis
+#Code created by Florian Christ as part of the Master Thesis
+#used R Version. 4.4.1 2024-06-14 ucrt
 
-
-#the soiltexture packages was no more available on cran. Therefore, package had to be downloaded from github
-
-install.packages("soiltexture")
-
-install.packages("soiltexture_master", repos = 0, type = "source")
+#00 set up environment----------------
+#import libraries
+library(tidyverse)
+library(soiltexture)
+library(ggplot2)
