@@ -1,0 +1,423 @@
+
+#------------------------------------------------------------------------------#
+library(scales)
+library(rmarkdown)
+library(ISwR) #statistic library "introductory Statistic with R"
+library(MASS) #car data from this library
+library(ggplot2)
+library(Hmisc)
+library(plotly)
+library(plotrix)
+library(gmodels)
+library(dplyr)
+library(viridis)
+library(tidyverse)
+library(dplyr)
+library(FactoMineR)
+library(ade4)
+library(ExPosition)
+library("factoextra")
+library("corrplot")
+library(HDoutliers)
+library("ggpubr")
+library(reshape2)
+library(car)
+library(MASS)
+library(RColorBrewer)
+library(openxlsx)
+library(readxl)
+library(pls)
+library(afex)
+library(lme4)
+library(VGAM)
+library(stringr)
+library(ggforce)
+library(psych)
+
+# 2.) Load Data -----------------------------------------------------------
+# Merged PPP Data from Florian, including all the recent PPP_Measurements from September 2023
+PPP_All_CSS <- read.csv("../2_Publication_Data/Clean_PPP_ALL_CSS_UrinePlus_13_11_23.csv") %>% 
+  mutate_if(is.logical, as.character)%>%
+  mutate_if(is.numeric, as.character)
+
+
+PPP_info <- read.xlsx("../0_Data/PPP_info_D2_3.xlsx")
+
+
+
+Freq_prep_Rel <- read.csv("../2_Publication_Data/6_Urine_Update/3_Median/Additive_Info_Boxplot_Freq.csv")
+# 3.) Clean Data ----------------------------------------------------------
+
+#List of all PPP measurements
+Metadata <- keep_up_to(PPP_All_CSS,"Glyphosate")
+
+
+PPP <- remove_up_to(PPP_All_CSS,"Glyphosate")
+
+
+
+PPP_Clean <- PPP %>% 
+  dplyr:: select(!ends_with("flag")) %>% 
+  mutate_all(funs(str_replace(., "^-", "0"))) %>% 
+  mutate_if(is.character, as.numeric)
+
+
+
+PPP_Clean[439:458,] <- PPP_Clean[439:458,] /1000              #Divide Air measurements by 1000 as value is given in ng -> mikrogramm
+PPP_Clean[459:522,] <- PPP_Clean[459:522,] /1000        #Divide Water measurements by 1000 as value is given in ng -> mikrogramm
+
+PPP_Clean <- PPP_Clean %>% 
+  relocate(Total_concentration,.after=217) %>% 
+  relocate(Amount_PPP,.after=217)
+
+PPP_names <- colnames(PPP_Clean[,-c(209:217)])        #create vector containing all PPP names
+suppressWarnings(PPP_Clean)
+
+Clean_PPP_All_CSS <- bind_cols(Metadata, PPP_Clean)       #Connect Metadata with PPP Measurements
+
+Clean_PPP_All_CSS$human_type[is.na(Clean_PPP_All_CSS$human_type)] <- ""
+
+
+Clean_PPP_All_CSS <-  Clean_PPP_All_CSS %>%  
+  mutate(farmtype = if_else(human_type == "Consumer"|human_type == "Neighbour", "unclassifiable", farmtype)) %>% #change farmtype to unclassifiable with consumers and neighbours
+  mutate(farmtype = if_else(farmtype == "conventional","Conventional",farmtype))
+
+
+
+
+
+
+# the used table "Clean_PPP_All_CSS_boxplot_ready_plot" is derived from the R-Script 5_4
+PPP_info_clean <- PPP_info %>% 
+  rename("PPP"="PPP.compound") %>% 
+  rename("Status"="Status.under.Reg..(EC).No.1107/2009") %>% 
+  rename("PPP_Type"="Type")
+
+#Add some PPP Information to the used Table
+Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO <- Clean_PPP_All_CSS_boxplot_ready_plot %>% 
+  left_join(PPP_info_clean,by="PPP")
+
+Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type <- gsub("insecticide","Insecticide",Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type)
+Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type <- gsub("  "," ",Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type)
+
+Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type <- as.character(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type)
+
+unique(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type)
+
+
+#1_1_Create Density Plot Table
+#######
+num_bins <- 60
+bin_edges <- seq(log10(5.200000e-06), log10(303806.2), length.out = num_bins + 1)
+
+bin_table <- Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO %>%
+  mutate(sprint_sample_code=sprint_sample_code,country=country,EHA =EHA,log_Concentration = log10(Concentration),
+         bin = cut(log_Concentration, breaks = bin_edges, include.lowest = TRUE, labels = FALSE))
+
+
+#Muss unbedingt 
+
+bin_table_absolute <- bin_table %>% 
+  group_by(EHA,farmtype,country,Observation,PPP_Type,bin)
+
+#bin_table_summary <- bin_table %>% 
+ # group_by(country,EHA,Obseervation,farmtype,bin) %>%
+  #summarize(
+   # Bin_Range = paste(sprintf("[%.2f, %.2f)", bin_edges[bin], bin_edges[bin + 1])),
+  #  Count = n()
+  #)
+
+
+
+
+ggplot(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO,aes(x=Concentration))+
+  geom_histogram(bins=70,fill = "transparent",color="black")+
+  scale_x_log10()
+
+summary(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$Concentration)
+
+############
+
+Clean_PPP_All_CSS_boxplot_ready_plot_Farmer_Plasma <- Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO %>% 
+  filter(Observation == "Farmer_Plasma") %>% 
+  filter(PPP %in% c("DDE.p.p.", "Bromoxynil",
+                    "Fipronil.sulfone",
+                    "Fluopyram.benzamide",
+                    "Fluazifop..P...only.free.",
+                    "X2.4.D..free.",
+                    "Hexachlorobenzene",
+                    "Piperonyl.butoxide",
+                    "Chlorpyrifos..methyl..TCPy",
+                    "Acetamiprid..Acetamiprid.N.desmethyl",
+                    "Metolachlor..S.",
+                    "Prosulfocarb",
+                    "DDT.p.p.",
+                    "Dieldrin",
+                    "Chlorpyrifos",
+                    "Glyphosate"
+  ))
+  
+
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot_Farmer_Plasma,aes(x=Concentration,color=PPP,fill=PPP))+
+  geom_density(adjust =1.5,alpha=0.5)+
+  scale_x_log10()+
+  theme(legend.position = "bottom")
+x
+
+
+
+#Density Plot Human##################
+
+Density_Plot_Human <- Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO %>% 
+  filter(EHA =="Human") %>% 
+  filter(PPP %in% c("DDE.p.p.",
+                    "Glyphosate",
+                    "folpet.PHI..Phthalimide..CAS..85.41.6.",
+                    "Piperonyl.butoxide",
+                    "Fipronil.sulfone",
+                    "Tebuconazole",
+                    "Azoxystrobin",
+                    "Fludioxonil",
+                    "Boscalid",
+                    "Fipronil",
+                    "Propiconazole",
+                    "Pirimiphos.methyl.metabolite.DEAMPY..2.diethylamino.6.methyl.pyrimidin.4.ol.",
+                    "X2.4.D..free.",
+                    "Hexachlorobenzene",
+                    "Propoxur",
+                    "Cypermethrin"
+  ))
+
+#Density plot PPP_types per Observation Human
+
+x <- ggplot(Density_Plot_Human,aes(x=Concentration,color=PPP_Type,fill=PPP_Type))+
+  geom_density(adjust=1.4,alpha=0.4,position="fill")+
+  geom_histogram(aes(y = ..density..), bins = 30, color = "black", fill = "transparent")+
+  scale_x_log10()+
+ # ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+library(ggplot2)
+library(gridExtra)
+
+# Density plot
+density_plot <- ggplot(Density_Plot_test, aes(x = Concentration, color = PPP_Type, fill = PPP_Type)) +
+  geom_density(adjust = 1.4, alpha = 0.4, position = "fill") +
+  scale_x_log10() +
+  theme(legend.position = "bottom")
+
+# Histogram plot with a secondary y-axis
+histogram_plot <- ggplot(Density_Plot_test, aes(x = Concentration, color = PPP_Type, fill = PPP_Type)) +
+  geom_histogram(aes(y = ..count.. / sum(..count..)), bins = 30, color = "black", fill = "transparent") +
+  scale_x_log10() +
+  scale_y_continuous(name = "Density", labels = scales::percent,position="right") +
+  theme(legend.position = "bottom")
+
+# Arrange the plots side by side
+combined_plot <- grid.arrange(density_plot, histogram_plot, ncol = 2)
+
+# Print the combined plot
+print(combined_plot)
+
+
+x <- ggplot(Density_Plot_Human,aes(x=Concentration,color=PPP_Type,fill=PPP_Type))+
+  #geom_density(adjust=1.4,alpha=0.4,position="fill")+
+  geom_histogram(bins = 30, color = "black", fill = "transparent")+
+  scale_x_log10()+
+  # ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+Density_Plot_test <- Density_Plot_Human %>% 
+  filter(Observation=="Farmer_Wristband")
+
+
+ggplot(Density_Plot_test, aes(x = Concentration, color = PPP_Type, fill = PPP_Type)) +
+  geom_density(adjust = 1.4, alpha = 0.4, position = "fill") +
+  geom_histogram(aes(y = ..count.. / sum(..count..)), bins = 30, color = "black", fill = "transparent") +
+  scale_x_log10() +
+  scale_y_continuous(name = "Density", labels = scales::percent) +
+  scale_y_continuous(sec.axis = sec_axis(~.*sum(..count..), name = "Count")) +
+  theme(legend.position = "bottom")
+
+###########################################################################################
+x <- ggplot(Density_Plot_test, aes(x = Concentration, color = PPP_Type, fill = PPP_Type)) +
+  geom_density(adjust=1.4,alpha=0.4,position="fill")+
+  geom_histogram(aes(y = (..count.. / sum(..count..)*10)), bins = 50, color = "black", fill = "transparent") +
+  scale_x_log10() +
+  scale_y_continuous(labels = scales::percent, sec.axis = ~.*10,name = "Frequency") +  # Convert y-axis labels to percentages
+  theme(legend.position = "bottom")
+x
+
+##################################################################################################
+
+x <- ggplot(Density_Plot_Human, aes(x = Concentration, y = PPP_Type, fill = ..density..)) +
+  geom_density_ridges() +
+  scale_x_log10() +
+  theme(legend.position = "bottom") +
+  facet_wrap(~Observation) +
+  labs(title = "Ridge Plot of Concentration by PPP Type", x = "Concentration", y = "PPP Type", fill = "Density")
+
+x
+
+max_count <- max(hist(Density_Plot_test$Concentration, breaks = 30, plot = FALSE)$counts)
+
+ggplot(Density_Plot_test, aes(x = Concentration, color = PPP_Type, fill = PPP_Type)) +
+  geom_density(adjust = 1.4, alpha = 0.4, position = "fill") +
+  geom_histogram(aes(y = ..count.. / max_count), bins = 30, color = "black", fill = "transparent") +
+  scale_x_log10() +
+  scale_y_continuous(name = "Density", labels = scales::percent) +
+  scale_y_continuous(
+    name = "Count",
+    labels = scales::percent,
+    sec.axis = sec_axis(~ .* max_count, name = "Count", labels = scales::comma)
+  ) +
+  theme(legend.position = "bottom")
+
+
+#Density plot PPP per Observation Human
+x <- ggplot(Density_Plot_Human,aes(x=Concentration,color=PPP,fill=PPP))+
+  geom_density(adjust=1.5,alpha=0.4,position = "fill")+
+  scale_x_log10()+
+  #ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+
+
+#Density Plot Environment########
+Density_Plot_Environment <- Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO %>% 
+  filter(EHA == "Environment") %>% 
+  filter(PPP %in% c("DDE.p.p.",
+                    "folpet",
+                    "Hexachlorobenzene",
+                    "Glyphosate",
+                    "Lindane..gamma.HCH.",
+                    "AMPA",
+                    "Dieldrin",
+                    "Azoxystrobin",
+                    "Tebuconazole",
+                    "DDD.p.p.",
+                    "Fluopyram"
+  ))
+
+
+x <- ggplot(Density_Plot_Environment,aes(x=Concentration,color=PPP_Type,fill=PPP_Type))+
+  geom_density(adjust=1.5,alpha=0.4,position ="identity")+
+  scale_x_log10()+
+  ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+#Density plot PPP per Observation Human
+x <- ggplot(Density_Plot_Environment,aes(x=Concentration,color=PPP,fill=PPP))+
+  geom_density(adjust=1.5,alpha=0.4)+
+  scale_x_log10()+
+  ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+
+#Density Plot Animal##############################3
+Density_Plot_Animal <- Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO %>% 
+  filter(EHA=="Animal") %>% 
+  filter(PPP %in% c("Glyphosate",
+                    "folpet.PHI..Phthalimide..CAS..85.41.6.",
+                    "AMPA",
+                    "DDE.p.p.",
+                    "Quinmerac",
+                    "Piperonyl.butoxide",
+                    "Pendimethalin",
+                    "Chlorpyrifos",
+                    "Cypermethrin",
+                    "Bifenthrin",
+                    "Pirimiphos.methyl",
+                    "Tebuconazole"
+  ))
+Density_Plot_Animal$PPP_Type <- as.character(Density_Plot_Animal$PPP_Type)
+
+Density_Plot_Animal <- Density_Plot_Animal %>% 
+  mutate(PPP_Type = if_else(PPP == "Quinmerac","Herbicide",PPP_Type))
+
+
+
+x <- ggplot(Density_Plot_Animal,aes(x=Concentration,color=PPP_Type,fill=PPP_Type))+
+  geom_density(adjust=1.5,alpha=0.4)+
+  scale_x_log10()+
+  ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+#Density plot PPP per Observation Human
+x <- ggplot(Density_Plot_Animal,aes(x=Concentration,color=PPP,fill=PPP))+
+  geom_density(adjust=1.5,alpha=0.4)+
+  scale_x_log10()+
+  ylim(0,3)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+#####################
+
+#Density splited up to farmtypes per EHA
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot,aes(x=Concentration,color=farmtype,fill=farmtype))+
+   geom_density(adjust =1.5,alpha=0.5)+
+   scale_x_log10()+
+   theme(legend.position = "bottom")+
+   facet_wrap(~EHA)
+x
+
+
+
+#Density splited up to farmtypes per Observation
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot,aes(x=Concentration,color=farmtype,fill=farmtype))+
+  geom_density(adjust =1.5,alpha=0.5,na.rm = TRUE)+
+  scale_x_log10()+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+colnames(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO[12])
+#Density splited up to Regulation Status per compartement
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO,aes(x=Concentration,color=Status,fill=Status))+
+  geom_density(adjust =1.5,alpha=0.5,na.rm = TRUE)+
+  scale_x_log10()+
+  theme(legend.position = "bottom")+
+  facet_wrap(~EHA)
+x
+
+#Density splited up to farmtypes per Observation
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO,aes(x=Concentration,color=Status,fill=Status))+
+  geom_density(adjust =1.5,alpha=0.5,na.rm = TRUE)+
+  scale_x_log10()+
+  ylim(0,1)+
+  theme(legend.position = "bottom")+
+  facet_wrap(~Observation)
+x
+
+
+#Density splited up to PPP Type per Observation
+Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type <- as.factor(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type)
+
+
+
+
+x <- ggplot(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO,aes(x=Concentration,color=PPP_Type))+
+  geom_density(adjust =1.5,alpha=0.5,na.rm = TRUE)+
+  scale_x_log10()+
+  theme(legend.position = "bottom")
+  #facet_wrap(~Observation)
+x
+
+
+
+
+(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$PPP_Type == "Herbicide")
+unique(Clean_PPP_All_CSS_boxplot_ready_plot_PPPINFO$country)
