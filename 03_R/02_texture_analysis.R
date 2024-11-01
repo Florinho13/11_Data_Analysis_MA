@@ -54,13 +54,14 @@ plots_texture_averaged_clean_r$color <- location_colors[as.character(plots_textu
 
 
 #3.1 texture plot for whole fields ######
+png("./02_output/01_texture/fields_texture.png", width = 700, height = 700)
 TT.plot(
   class.sys = "USDA.TT",
   tri.data = fields_texture_averaged_clean_r,
   col = fields_texture_averaged_clean_r$color,
   pch = ifelse(fields_texture_averaged_clean_r$farming_system=="1",1,6),
   lwd = 2.5,
-  cex = 2,
+  cex = 2.2,
   main = "Soil Classification on Analysed fields",
   css.lab= c("[%]Clay 0-2 µm","[%]Silt 2-63µm","[%]Sand 63-2000µm")
 )
@@ -80,18 +81,19 @@ legend(x=82.4,y=76,
        cex = 1.2,
        pch = c(1,6),
        title = "Farming System")
-
+dev.off()
 
 
 #3.2 texture plot for each plot on each field#########
+png("./02_output/01_texture/plots_texture.png",width=700,height = 700)
 TT.plot(
   class.sys = "USDA.TT",
   tri.data = plots_texture_averaged_clean_r,
   col = plots_texture_averaged_clean_r$color,
   pch = ifelse(plots_texture_averaged_clean_r$farming_system=="1",1,6),
   lwd = 2.5,
-  cex = 2,
-  main = "Soil Classification on Analysed fields",
+  cex = 2.2,
+  main = "Soil Classification on each plot analysed on fields",
   css.lab= c("[%]Clay 0-2 µm","[%]Silt 2-63µm","[%]Sand 63-2000µm")
 )
 #add legend for locations
@@ -109,3 +111,7 @@ legend(x=82.4,y=76,
        cex = 1.2,
        pch = c(1,6),
        title = "Farming System")
+dev.off()
+
+#3.3 Define soil classes#####
+
