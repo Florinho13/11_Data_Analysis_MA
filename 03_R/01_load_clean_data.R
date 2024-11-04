@@ -17,6 +17,14 @@ texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
 #pH
 pH_data <- read.xlsx("./01_input/lab_resultate_bern.xlsx",sheet = 1)
 
+
+#microbial biomass
+#microbial C
+microbial_C <- read.xlsx("./01_input/Data_microbial_biomass_BT_Janina_Hämmerli.xlsx", sheet = "microbial_c")
+#microbial N
+microbial_N <- read.xlsx("./01_input/Data_microbial_biomass_BT_Janina_Hämmerli.xlsx", sheet = "microbial_n")
+
+
 #3. clean texture_data#####
 #Simplify sample name and set column data types
 texture_data <- texture_data %>%
@@ -47,3 +55,21 @@ pH_data_clean <- pH_data %>%
   filter(!str_starts(sample_name,"Blank"))
 
 saveRDS(pH_data_clean,"./01_input/pH_data_clean.rds")
+
+#5. clean microbial Data####
+#microbial C
+microbial_C_clean <- microbial_C %>% 
+  rename(sample_name = Field_Plot,
+         microbial_c = C.probe.calc) %>% 
+  mutate(sample_name = str_replace_all(sample_name,"\\.","_"))
+
+saveRDS(microbial_C_clean,"./01_input/microbialC_data_clean.rds")
+
+#microbial N
+microbial_N_clean <- microbial_N %>% 
+  rename(sample_name = Field_Plot,
+         microbial_N = N.probe.calc) %>% 
+  mutate(sample_name = str_replace_all(sample_name,"\\.","_"))
+
+saveRDS(microbial_N_clean,"./01_input/microbialN_data_clean.rds")
+

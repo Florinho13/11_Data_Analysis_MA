@@ -3,9 +3,9 @@
     "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/01_load_clean_data.R",
     "project_path": "03_R/01_load_clean_data.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "790739038",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1730407489009.0,
     "source_on_save": false,
     "relative_order": 1,
@@ -18,11 +18,11 @@
         "docOutlineVisible": "1"
     },
     "folds": "",
-    "lastKnownWriteTime": 1730473625,
+    "lastKnownWriteTime": 1730733133,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1730732983900,
+    "last_content_update": 1730733133312,
     "read_only": false,
     "read_only_alternatives": []
 }
