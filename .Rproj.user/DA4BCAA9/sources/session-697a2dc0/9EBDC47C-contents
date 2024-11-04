@@ -25,6 +25,13 @@ microbial_C <- read.xlsx("./01_input/Data_microbial_biomass_BT_Janina_Hämmerli.
 microbial_N <- read.xlsx("./01_input/Data_microbial_biomass_BT_Janina_Hämmerli.xlsx", sheet = "microbial_n")
 
 
+#plant health
+#Plant height
+plant_height <- read.xlsx("./01_input/Plant_Health.xlsx",sheet="höhe")
+#Chlorophyll content
+plant_chlorophyll <- read.xlsx("./01_input/Plant_Health.xlsx",sheet = "chlorophyll")
+
+
 #3. clean texture_data#####
 #Simplify sample name and set column data types
 texture_data <- texture_data %>%
@@ -72,4 +79,30 @@ microbial_N_clean <- microbial_N %>%
   mutate(sample_name = str_replace_all(sample_name,"\\.","_"))
 
 saveRDS(microbial_N_clean,"./01_input/microbialN_data_clean.rds")
+
+#6. clean plant data####
+#plant height
+plant_height_clean <- plant_height %>% 
+  rename(sample_name = Feldcode,
+         height_cm = "Höhe.[cm]")
+
+saveRDS(plant_height_clean,"./01_input/plant_height_data_clean.rds")
+
+#plant chlorophyll content
+plant_chlorophyll_clean <- plant_chlorophyll %>% 
+  rename(sample_name = Feldcode,
+         chlorophyll_mid = Chlorophyllgehalt.mitte,
+         chlorophyll_front = Chlorophyllgehalt.vorne) %>% 
+  select(1:4)
+
+saveRDS(plant_chlorophyll_clean,"./01_input/plant_chlorophyll_data_clean.rds")
+
+plant_chlorophyll_clean_long <- plant_chlorophyll_clean %>%
+  pivot_longer(
+    cols = c(chlorophyll_mid, chlorophyll_front),
+    names_to = "chlorophyll_type",
+    values_to = "chlorophyll_value"
+  )
+
+saveRDS(plant_chlorophyll_clean_long,"./01_input/plant_chlorophyll_data_clean_long.rds")
 

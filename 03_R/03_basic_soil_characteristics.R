@@ -14,41 +14,43 @@ source("./03_R/00_functions.R")
 
 #import dataset
 ph_clean <- readRDS("./01_input/pH_data_clean.rds")
+microbial_c_clean <- readRDS("./01_input/microbialC_data_clean.rds")
+microbial_n_clean <- readRDS("./01_input/microbialN_data_clean.rds")
 
 
 # prepare dataset for plotting#####
-ph_clean_rp <- ph_clean %>% 
-  mutate(location = substr(sample_name,1,1),
-         farming_system = substr(sample_name,3,3),
-         plot = substr(sample_name,5,5))
+#pH
+ph_clean_rp <- plot_prepr(ph_clean)
 
-location_colors <- map_colours(ph_clean_rp$location)
+#microbial C
+microbial_c_clean_rp <- plot_prepr(microbial_c_clean)
 
-farming_system_shapes <- map_shapes(ph_clean_rp$farming_system)
+#microbial N
+microbial_n_clean_rp <- plot_prepr(microbial_n_clean)
 
-ph_clean_rp$color <- location_colors[as.character(ph_clean_rp$location)] 
-ph_clean_rp$shape <- farming_system_shapes[as.character(ph_clean_rp$farming_system)]
 
-#02 create boxplots#####
+#02 create overview plots#####
+location_colors <- map_colours(ph_clean_rp$location) #create colour map vector
 
-pH_plot_overview <- ggplot(ph_clean_rp,aes(x=substr(sample_name,1,3),y=pH,pch=factor(shape),colour = factor(location)))+
-  geom_point(stat = "identity", position = "identity")+
-  ggtitle("pH values on the different field plots\
-          and field average")+
-  labs(y="pH",x="Field Numbers")+
-  stat_summary(
-    fun = mean, 
-    geom = "point",
-    aes(shape = "Mean Value"),
-    shape = 8,
-    color = "black",  # Color of the mean line (you can change this as needed)
-    size = 2,) +# Thickness of the line
-  scale_color_manual(values = location_colors, labels = c("Freudwil","Niederhasli","Läufelfingen",
-                                                          "Heimenhausen","Heimiswil","Ueberstorf"))+
-  scale_shape_manual(values = c(16,17), labels = c("Regenerative","Conventional"))+
-  labs(color = "Location",shape="Farming System")+
-  theme_minimal()
+#pH overview plot
+pH_plot_overview <- overview_plot(ph_clean_rp,sample_name,ph_clean_rp$pH,ph_clean_rp$shape,ph_clean_rp$location,"pH","Field Numbers","pH value",location_colors)
+pH_plot_overview  
 ggsave("./02_output/pH_overview.png",pH_plot_overview,width = 15,height = 15,units = "cm")
-  
-  
-  
+
+
+#microbial C overview plot
+microbial_c_overview <- overview_plot(microbial_c_clean_rp,microbial_c_clean_rp$sample_name,
+                                      microbial_c_clean_rp$microbial_c,microbial_c_clean_rp$shape,
+                                      microbial_c_clean_rp$location,"Microbial C","Field Numbers","mg/kg dry mass",location_colors)
+microbial_c_overview
+ggsave("./02_output/microbial_c_overview.png",microbial_c_overview,width = 15,height = 15,units = "cm")
+
+
+#microbial N overview plot
+microbial_n_overview <- overview_plot(microbial_n_clean_rp,microbial_n_clean_rp$sample_name,
+                                      microbial_n_clean_rp$microbial_N,microbial_n_clean_rp$shape,
+                                      microbial_n_clean_rp$location,"Microbial N","Field Numbers","mg/kg dry mass",location_colors)
+
+microbial_n_overview
+ggsave("./02_output/microbial_n_overview.png",microbial_n_overview,width = 15,height = 15,units = "cm")
+
