@@ -1,0 +1,750 @@
+#-------------------------------------------------------------------------------
+#                  SPRINT project: soil PPP health effect
+#
+# Florian Christ Inspiration derived from codes of Alexandra Foetisch, Lington Gai and Natacha Van Groeningen
+# 23.10.2023 -> Data used from the current state 13.10.2023
+# R-Version 4.2.2
+#-------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------#
+# 1.) Load Libraries ------------------------------------------------------
+#------------------------------------------------------------------------------#
+library(scales)
+library(rmarkdown)
+library(ISwR) #statistic library "introductory Statistic with R"
+library(MASS) #car data from this library
+library(ggplot2)
+library(Hmisc)
+library(plotly)
+library(plotrix)
+library(gmodels)
+library(dplyr)
+library(viridis)
+library(tidyverse)
+library(dplyr)
+library(FactoMineR)
+library(ade4)
+library(ExPosition)
+library("factoextra")
+library("corrplot")
+library(HDoutliers)
+library("ggpubr")
+library(reshape2)
+library(car)
+library(MASS)
+library(RColorBrewer)
+library(openxlsx)
+library(readxl)
+library(pls)
+library(afex)
+library(lme4)
+library(VGAM)
+library(stringr)
+library(ggforce)
+
+# 2.) Load Data -----------------------------------------------------------
+# Merged PPP Data from Florian, including all the recent PPP_Measurements from September 2023
+PPP_All_CSS <- read.csv("../2_Publication_Data/7_Final_Update/Clean_PPP_ALL_CSS_Final_Update_29_01_24.csv") %>% 
+  mutate_if(is.logical, as.character)%>%
+  mutate_if(is.numeric, as.character)
+
+# 3.) Clean Data ----------------------------------------------------------
+
+#List of all PPP measurements
+Metadata <- keep_up_to(PPP_All_CSS,"Glyphosate")
+
+
+PPP <- remove_up_to(PPP_All_CSS,"Glyphosate")
+
+
+
+PPP_Clean <- PPP %>% 
+  dplyr:: select(!ends_with("flag")) %>% 
+  mutate_all(funs(str_replace(., "^-", "0"))) %>% 
+  mutate_if(is.character, as.numeric)
+
+
+
+PPP_Clean[439:458,] <- PPP_Clean[439:458,] /1000              #Divide Air measurements by 1000 as value is given in ng -> mikrogramm
+PPP_Clean[459:522,] <- PPP_Clean[459:522,] /1000        #Divide Water measurements by 1000 as value is given in ng -> mikrogramm
+
+PPP_Clean <- PPP_Clean %>% 
+  relocate(Total_concentration,.after=215) %>% 
+  relocate(Amount_PPP,.after=215)
+
+PPP_names <- colnames(PPP_Clean[,-c(209:215)])        #create vector containing all PPP names
+suppressWarnings(PPP_Clean)
+
+Clean_PPP_All_CSS <- bind_cols(Metadata, PPP_Clean)       #Connect Metadata with PPP Measurements
+
+
+# 4.) Calculate Median values of each PPP per country ---------------------
+#Environment
+#Generate Table with only Environmental Data
+PPP_Environment <- Clean_PPP_All_CSS %>%
+  filter (EHA == "Environment")
+
+#Generate table with environmental medians per CSS, farmtype and Matrix
+environment_median2 <- PPP_Environment %>%
+  group_by (country,farmtype,Matrix) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>% 
+  rename("Observation"="Matrix","FT"="farmtype") %>% 
+  mutate(EHA="Environment",.after=1)
+
+#Human
+#Generate Table with only Environmental Data
+PPP_Human <- Clean_PPP_All_CSS %>%
+  filter (EHA == "Human")
+
+#Generate table with Human medians per CSS, farmtype and Matrix
+Human_median <- PPP_Human %>%
+  group_by (country,human_type,farmtype,Matrix) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>%  
+  #mutate(FT = case_when(farmtype == "Farmer_Conv"~"Conventional",
+                       # farmtype == "Farmer_Organic"~"Organic",
+                       # farmtype == "Consumer"|farmtype == "Neighbour"~"NA"),.after=1) %>% 
+  #mutate(ident = case_when(farmtype=="Farmer_Conv"| farmtype== "Farmer_Organic"~"Farmer",
+                          # farmtype=="Consumer"~"Consumer",farmtype=="Neighbour"~"Neighbour"),.after=2) %>% 
+  relocate(human_type,.after = 3) %>% 
+  ungroup()
+
+Human_median <- Observation_Description_3(Human_median)#Connect coloumn 3 and 4
+Human_median <- Human_median %>% 
+  mutate(EHA="Human",.after=1) %>%
+  rename("FT"=farmtype)
+
+#Animal
+# Generate table with Animal medians per CSS, farmtype and Matrix
+PPP_Animal <- Clean_PPP_All_CSS %>% 
+  filter(EHA == "Animal")
+
+Animal_median <- PPP_Animal %>%
+  dplyr:: group_by (country,farmtype,Matrix) %>%
+  dplyr:: summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>% 
+  rename("Observation"="Matrix","FT"="farmtype") %>% 
+  mutate(EHA="Animal",.after=1)
+
+
+#4.2 Combine Median tables---------------------------------------------------------
+Median_perCountry <- environment_median2 %>%
+  dplyr::bind_rows(Human_median) %>% 
+  dplyr::bind_rows(Animal_median) %>% 
+  ungroup()
+Median_perCountry$EHA = factor(Median_perCountry$EHA, levels = c("Environment","Human","Animal"))
+
+
+write.xlsx(Median_perCountry,"../2_Publication_Data/7_Final_Update/3_Median/Table_Median_Conc_perCSS_29_01_2024.xlsx")
+
+
+
+#4.3 creat data with the median per EHA########################################
+data_facet_means <- Clean_PPP_All_CSS %>%
+  filter(!(EHA=="Human-Eco")) %>% 
+  group_by(EHA) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE))))
+
+data_facet_means_CSS <- Median_perCountry %>%
+  group_by(EHA) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE))))
+
+#write.xlsx(data_facet_means_CSS,"./Median_Concentration/Table_median_perCSS_perCompartment_UU.xlsx")
+data_facet_means_CSS_plot <- data_facet_means_CSS %>% 
+  pivot_longer(
+    cols = starts_with(PPP_names_median),
+    names_to = "PPP",
+    values_to = "Median_Concentration" )
+
+
+
+Median_perCountry$Observation <- sub("_"," ", Median_perCountry$Observation) #change sepearator to space
+
+
+PPP_names_median <- colnames(Median_perCountry[,5:214])
+
+Median_perCountry_plot <- Median_perCountry %>% 
+pivot_longer(
+  cols = starts_with(PPP_names_median),
+  names_to = "PPP",
+  values_to = "Median_Concentration" )
+
+
+#5.0 Function for Boxplots---------------------------------
+#The Median Line needs to be adjusted depending on the PPP plotted
+Boxplot <- function(df){
+ggplot(df, aes(x=Observation, y=Median_Concentration, fill= factor(FT, levels = c("Conventional","Organic","unclassifiable")) )) +
+  stat_boxplot(geom ='errorbar',position = position_dodge(preserve = "single")) +
+  geom_boxplot(show.legend=T,width=0.9,position = position_dodge(preserve = "single"))+
+  scale_color_manual (values=c("plum3", "khaki2"))+ 
+  scale_fill_manual(values = c("#D95C03","#08994E","#B5AA0D"))+
+  
+  #geom_jitter()+
+  #geom_dotplot(binaxis='y', stackdir='center',position=position_dodge(1))+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust=0.5,size = 18,face = "bold"),
+        axis.title.x = element_text(size=16,margin = margin(r = 40)),
+        axis.title.y = element_text(size=16,margin = margin(r = 20)),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        legend.position="right",
+        #legend.position = c(1, 0.15), legend.justification = c(1, 1),legend.background = element_rect(colour = "white"),
+        legend.text = element_text(size = 13),
+        #plot.margin = margin(r=1,unit = "cm"),
+        panel.grid.major.y = element_line(linewidth = 0.7,colour = "lightgrey",linetype = 1))+
+  guides(fill = guide_legend(order = 1))+  
+  facet_col(~factor(EHA),scales = "free_y",  space = "free")+
+    theme(strip.text = element_text(size = 15,face = "bold"))+
+  scale_y_continuous(trans = "log10", breaks = c(0.001,0.01,0.1,1,10,100,1000,10000))+
+  #scale_x_discrete(guide = guide_axis(n.dodge = 3))
+  coord_flip()
+}
+
+
+
+Boxplot2 <- function(df){
+  ggplot(df, aes(x=Observation, y=Median_Concentration, fill= factor(FT, levels = c("Conventional","Organic","unclassifiable")) )) +
+    stat_boxplot(geom ='errorbar',position = position_dodge(preserve = "single")) +
+    geom_boxplot(show.legend=T,width=0.9,position = position_dodge(preserve = "single"))+
+    scale_color_manual (values=c("plum3", "khaki2"))+ 
+    scale_fill_manual(values = c("#D95C03","#08994E","#B5AA0D"))+
+    
+    #geom_jitter()+
+    #geom_dotplot(binaxis='y', stackdir='center',position=position_dodge(1))+
+    theme_minimal()+
+    theme(plot.title = element_text(hjust=0.5,size = 18,face = "bold"),
+          axis.title.x = element_text(size=16,margin = margin(r = 40)),
+          axis.title.y = element_text(size=16,margin = margin(r = 20)),
+          axis.text.x = element_text(size = 13),
+          axis.text.y = element_text(size = 13),
+          #legend.position="right",
+          legend.position = c(1, 0.15), legend.justification = c(1, 1),legend.background = element_rect(colour = "white"),
+          legend.text = element_text(size = 13),
+          #plot.margin = margin(r=1,unit = "cm"),
+          panel.grid.major.y = element_line(linewidth = 0.7,colour = "lightgrey",linetype = 1))+
+    guides(fill = guide_legend(order = 1))+  
+    facet_col(~factor(EHA),scales = "free_y",  space = "free")+
+    theme(strip.text = element_text(size = 15,face = "bold"))+
+    scale_y_continuous(trans = "log10", breaks = c(0.001,0.01,0.1,1,10,100,1000,10000))+
+    #scale_x_discrete(guide = guide_axis(n.dodge = 3))
+    coord_flip()
+}
+
+Boxplot3 <- function(df){
+  ggplot(df, aes(x=Observation, y=Median_Concentration, fill= factor(FT, levels = c("Conventional","Organic","unclassifiable")) )) +
+    stat_boxplot(geom ='errorbar',position = position_dodge(preserve = "single")) +
+    geom_boxplot(show.legend=T,width=0.9,position = position_dodge(preserve = "single"))+
+    scale_color_manual (values=c("plum3", "khaki2"))+ 
+    scale_fill_manual(values = c("#D95C03","#08994E","#B5AA0D"))+
+    
+    #geom_jitter()+
+    #geom_dotplot(binaxis='y', stackdir='center',position=position_dodge(1))+
+    theme_minimal()+
+    theme(plot.title = element_text(hjust=0.5,size = 18,face = "bold"),
+          axis.title.x = element_text(size=16,margin = margin(r = 40)),
+          axis.title.y = element_text(size=16,margin = margin(r = 20)),
+          axis.text.x = element_text(size = 13),
+          axis.text.y = element_text(size = 13),
+          legend.position="bottom",
+          #legend.position = c(0, 0.15), legend.justification = c(1, 1),legend.background = element_rect(colour = "white"),
+          legend.text = element_text(size = 13),
+          plot.margin = margin(l=0.5,t=0.5,r=2,unit = "cm"),
+          panel.grid.major.y = element_line(linewidth = 0.7,colour = "lightgrey",linetype = 1))+
+    guides(fill = guide_legend(order = 1))+  
+    facet_col(~factor(EHA),scales = "free_y",  space = "free")+
+    theme(strip.text = element_text(size = 15,face = "bold"))+
+    scale_y_continuous(trans = "log10", breaks = c(0.001,0.01,0.1,1,10,100,1000,10000))+
+    #scale_x_discrete(guide = guide_axis(n.dodge = 3))
+    coord_flip()
+}
+
+
+#Boxplot for all concentrations > LOD
+
+Boxplot_Conc <- function(df){
+  ggplot(df, aes(x=Observation, y=Concentration, fill= factor(farmtype, levels = c("Conventional","Organic","unclassifiable")) )) +
+    stat_boxplot(geom ='errorbar',position = position_dodge(preserve = "single")) +
+    geom_boxplot(show.legend=T,width=0.9,position = position_dodge(preserve = "single"))+
+    scale_color_manual (values=c("plum3", "khaki2"))+ 
+    scale_fill_manual(values = c("#D95C03","#08994E","#B5AA0D"))+
+    
+    #geom_jitter()+
+    #geom_dotplot(binaxis='y', stackdir='center',position=position_dodge(1))+
+    theme_minimal()+
+    theme(plot.title = element_text(hjust=0.5,size = 19,face = "bold"),
+          axis.title.x = element_text(size=17,margin = margin(r = 40)),
+          axis.title.y = element_text(size=17,margin = margin(r = 20)),
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
+          legend.position="bottom",
+          #legend.position = c(0, 0.15), legend.justification = c(1, 1),legend.background = element_rect(colour = "white"),
+          legend.text = element_text(size = 14),
+          plot.margin = margin(l=0.5,t=0.5,r=2,unit = "cm"),
+          panel.grid.major.y = element_line(linewidth = 0.7,colour = "lightgrey",linetype = 1))+
+    guides(fill = guide_legend(order = 1))+  
+    facet_col(~factor(EHA),scales = "free_y",  space = "free")+
+    theme(strip.text = element_text(size = 16,face = "bold"))+
+    scale_y_continuous(trans = "log10", breaks = c(0.001,0.01,0.1,1,10,100,1000,10000))+
+    #scale_x_discrete(guide = guide_axis(n.dodge = 3))
+    coord_flip()
+}
+
+# Example usage:
+# Boxplot(your_dataframe)
+
+
+
+options(scipen = 999)    
+#5.1 Boxplot Glyphosate---------------------------------
+ggplot(Median_perCountry, aes(x=Observation, y=Glyphosate_median, fill= factor(FT, levels = c("Conventional","Organic","NA")) )) +
+  stat_boxplot(geom ='errorbar',position = position_dodge(width = 0.9)) +
+  geom_boxplot(show.legend=T, width(1),notch = T)+
+  scale_color_manual (values=c("plum3", "khaki2"))+ 
+  scale_fill_manual(values = c("#D95C03","#08994E","#B5AA0D"))+
+  
+  #geom_jitter()+
+  #geom_dotplot(binaxis='y', stackdir='center',position=position_dodge(1))+
+  
+  ggtitle("Boxplot of Median Glyphosate concentration  per CSS and Matrix") +
+  labs(y="Glyphosate µg/kg",fill= "Farmtype")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust=0.5, size = ),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10,margin = margin(r = 20)),
+        #axis.text.x = element_text(angle = 45),
+        legend.position="right",
+        legend.text = element_text(size = 11),
+        plot.margin = margin(r=2,unit = "cm"),
+        panel.grid.major.x = element_line(size = 0.5))+
+  geom_line()+
+  geom_hline(data = data_facet_means_CSS, aes(yintercept = data_facet_means_CSS$Glyphosate_median_median, linetype = "Median per Compartment" ),col = "red",
+             size=1.0 )+
+  scale_linetype_manual(values = c("Median per Compartment" = "solid"), guide = guide_legend(title = ""))+
+  guides(fill = guide_legend(order = 1),
+         linetype = guide_legend(order = 2,title = ""))+  
+  facet_col(~factor(EHA),scales = "free_y",  space = "free")+
+  theme(strip.text = element_text(size = 13))+
+  scale_y_continuous(trans = "log10", breaks = c(0.01,0.1,1,10,100,1000,10000))+
+#scale_x_discrete(guide = guide_axis(n.dodge = 3))
+  coord_flip()
+
+
+#5.2 Boxplot DDE---------------------------------------
+Median_DDE_perCountry_plot <- Median_perCountry_plot [,1:6] %>% 
+  filter(PPP == "DDE.p.p._median") %>% 
+  ungroup()
+
+Median_DDE_perCountry_plot <- as.data.frame(Median_DDE_perCountry_plot)
+str(Median_DDE_perCountry_plot)
+
+DDE_boxplot <- Boxplot(Median_DDE_perCountry_plot)+
+  ggtitle("Boxplot of Median DDE.p.p. concentration  per CSS and Matrix") +
+  labs(y="DDE.p.p. µg/kg",fill= "Farmtype")
+DDE_boxplot
+
+#5.3 Boxplot Folpet.PHI----------------------
+Median_Folpet_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Folpet.PHI_median") %>% 
+  ungroup()
+
+Median_Folpet_perCountry_plot <- as.data.frame(Median_Folpet_perCountry_plot)
+
+Folpet_boxplot <- Boxplot(Median_Folpet_perCountry_plot)+
+  ggtitle("Boxplot of Median Folpet.PHI concentration  per CSS and Matrix") +
+  labs(y="Folpet.PHI µg/kg",fill= "Farmtype")
+Folpet_boxplot
+
+#5.4 Boxplot Hexachlorobenzene-----------------
+Median_Hexachloro_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Hexachlorobenzene_median") %>% 
+  ungroup()
+
+Median_Hexachloro_perCountry_plot <- as.data.frame(Median_Hexachloro_perCountry_plot)
+
+Hexachloro_boxplot <- Boxplot3(Median_Hexachloro_perCountry_plot)+
+  ggtitle("Hexachlorobenzene concentration per Matrix") +
+  labs(y="Hexachlorobenzene µg/kg",fill= "Farmtype")
+Hexachloro_boxplot
+
+ggsave("../2_Publication_Data/3_Median/Hexachloro_Boxplot_v2.png",Hexachloro_boxplot,width = 26,height = 28,units = "cm",bg="white")
+
+#5.5 Boxplot Fipronil.sulfone----------------------------------
+Median_Fipronil_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Fipronil.sulfone_median") %>% 
+  ungroup()
+
+Median_Fipronil_perCountry_plot <- as.data.frame(Median_Fipronil_perCountry_plot)
+
+Fipronil_boxplot <- Boxplot(Median_Fipronil_perCountry_plot)+
+  ggtitle("Boxplot of Median Fipronil.sulfone concentration  per CSS and Matrix") +
+  labs(y="Fipronil.sulfone µg/kg",fill= "Farmtype")
+Fipronil_boxplot
+
+
+#5.6 Boxplot AMPA-------------------------------
+Median_AMPA_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "AMPA_median") %>% 
+  ungroup()
+
+Median_AMPA_perCountry_plot <- as.data.frame(Median_AMPA_perCountry_plot)
+
+AMPA_boxplot <- Boxplot(Median_AMPA_perCountry_plot)+
+  ggtitle("Boxplot of Median AMPA concentration per CSS and Matrix") +
+  labs(y="AMPA µg/kg",fill= "Farmtype")
+AMPA_boxplot
+
+#5.7 Boxplot Lambda.cyhalothrin-------------------------------
+Median_Lambda_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Lambda.cyhalothrin_median") %>% 
+  ungroup()
+
+Median_Lambda_perCountry_plot <- as.data.frame(Median_Lambda_perCountry_plot)
+
+Lambda_boxplot <- Boxplot(Median_Lambda_perCountry_plot)+
+  ggtitle("Boxplot of Median Lambda.cyhalothrin concentration  per CSS and Matrix") +
+  labs(y="Lambda.cyhalothrin µg/kg",fill= "Farmtype")
+Lambda_boxplot
+
+
+#5.8 Boxplot Piperonyl.butoxide----------------------------
+Median_Piperonyl_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Piperonyl.butoxide_median") %>% 
+  ungroup()
+
+Median_Piperonyl_perCountry_plot <- as.data.frame(Median_Piperonyl_perCountry_plot)
+
+Piperonyl_boxplot <- Boxplot(Median_Piperonyl_perCountry_plot)+
+  ggtitle("Boxplot of Median Piperonyl.butoxide concentration  per CSS and Matrix") +
+  labs(y="Piperonyl.butoxide µg/kg",fill= "Farmtype")
+Piperonyl_boxplot 
+
+#5.9 Boxplot Cypermethrin-------------------------
+Median_Cypermethrin_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Cypermethrin_median") %>% 
+  ungroup()
+
+Median_Cypermethrin_perCountry_plot <- as.data.frame(Median_Cypermethrin_perCountry_plot)
+
+Cypermethrin_boxplot <- Boxplot(Median_Cypermethrin_perCountry_plot)+
+  ggtitle("Boxplot of Median Cypermethrin concentration  per CSS and Matrix") +
+  labs(y="Cypermethrin µg/kg",fill= "Farmtype")
+Cypermethrin_boxplot
+
+#5.10 Boxplot Chlorpyrifos------------------
+Median_Chlorpyrifos_perCountry_plot <- Median_perCountry_plot%>% 
+  filter(PPP == "Chlorpyrifos_median") %>% 
+  ungroup()
+
+Median_Chlorpyrifos_perCountry_plot <- as.data.frame(Median_Chlorpyrifos_perCountry_plot)
+
+Chlorpyrifos_boxplot <- Boxplot(Median_Chlorpyrifos_perCountry_plot)+
+  ggtitle("Boxplot of Median Chlorpyrifos concentration  per CSS and Matrix") +
+  labs(y="Chlorpyrifos µg/kg",fill= "Farmtype")
+Chlorpyrifos_boxplot
+
+
+#6.0 Create Boxplots automated V1 ###########################
+Detection_Frequency_PPP <- read_excel("../2_Publication_Data/7_/1_Frequency_of_Occurence/PPP_Freq_Overview_All_samples_03_11_23.xlsx",sheet = 1)
+Detection_Frequency_PPP <- as.data.frame(Detection_Frequency_PPP[-c(1,2),])
+
+PPP_names_20_most_freq <- paste0(Detection_Frequency_PPP[1:20,1],"_median")
+
+PPP_names_19_most_freq <- PPP_names_20_most_freq[-3]
+
+current_date <- substr(Sys.Date(),1,10)
+current_date <- gsub("-","_",current_date)
+
+for (i in PPP_names_19_most_freq){
+  
+  #Clean PPP Name
+  a <- i
+  a <- gsub(" ","_",a)
+  a <- gsub("-","_",a)
+  a <- gsub(",","_",a)
+  a <- gsub(")$","",a)
+  a <- gsub(":","",a)
+  a <- gsub("_median","",a)
+  a <- substr(a,1,20)
+  
+  b <- gsub("_median","",i)
+  
+  
+  
+  #prepare name variables
+  rel_table_PPP_name <- paste0("../2_Publication_Data/3_Median/Tables_Concentration_Boxplots/","Table_Concen_",a,"_",current_date,"_","boxplot.xlsx")
+  Freq_plot_title <- paste0(b," Concentration per Matrix")
+  YLABTitle <- paste0(b," µg/kg")
+  filename <- paste0("../2_Publication_Data/3_Median/Figures_Concentration_Boxplots/","Figure_Concen_",a,"_",current_date,"_","boxplot.png")
+  
+  #Create PPP specific plot table
+  
+  df <- Median_perCountry_plot%>% 
+    filter(PPP == i) %>% 
+    ungroup()
+  
+  
+  
+  #safe table
+  write.xlsx(df,rel_table_PPP_name)
+  
+  
+  Conc_plot <- Boxplot(df)+ggtitle(Freq_plot_title) +
+    labs(YLABTitle,fill= "Farmtype")
+  
+  ggsave(filename,Conc_plot,width = 26,height = 28,units = "cm",bg="white") 
+  
+  
+  
+  
+}
+
+
+
+
+#Create Plots Automated V2
+for (i in PPP_names_19_most_freq){
+  
+  #Clean PPP Name
+  a <- i
+  a <- gsub(" ","_",a)
+  a <- gsub("-","_",a)
+  a <- gsub(",","_",a)
+  a <- gsub(")$","",a)
+  a <- gsub(":","",a)
+  a <- gsub("_median","",a)
+  a <- substr(a,1,20)
+  
+  b <- gsub("_median","",i)
+  
+  
+  
+  #prepare name variables
+  rel_table_PPP_name <- paste0("../2_Publication_Data/3_Median/Tables_Concentration_Boxplots/","Table_Concen_",a,"_",current_date,"_","boxplot.xlsx")
+  Freq_plot_title <- paste0(b," Concentration per Matrix")
+  YLABTitle <- paste0(b," µg/kg")
+  filename <- paste0("../2_Publication_Data/3_Median/Figures_Concentration_Boxplots/","V2_Figure_Concen_",a,"_",current_date,"_","boxplot.png")
+  
+  #Create PPP specific plot table
+  
+  df <- Median_perCountry_plot%>% 
+    filter(PPP == i) %>% 
+    ungroup()
+  
+  
+  
+  #safe table
+  write.xlsx(df,rel_table_PPP_name)
+  
+  
+  Conc_plot <- Boxplot2(df)+ggtitle(Freq_plot_title) +
+    labs(YLABTitle,fill= "Farmtype")
+  
+  ggsave(filename,Conc_plot,width = 26,height = 28,units = "cm",bg="white") 
+  
+  
+  
+  
+}
+
+#Create Plots Automated V3
+for (i in PPP_names_19_most_freq){
+  
+  #Clean PPP Name
+  a <- i
+  a <- gsub(" ","_",a)
+  a <- gsub("-","_",a)
+  a <- gsub(",","_",a)
+  a <- gsub(")$","",a)
+  a <- gsub(":","",a)
+  a <- gsub("_median","",a)
+  a <- substr(a,1,20)
+  
+  b <- gsub("_median","",i)
+  
+  
+  
+  #prepare name variables
+  rel_table_PPP_name <- paste0("../2_Publication_Data/3_Median/Tables_Concentration_Boxplots/","Table_Concen_",a,"_",current_date,"_","boxplot.xlsx")
+  Freq_plot_title <- paste0(b," Concentration per Matrix")
+  YLABTitle <- paste0(b," µg/kg")
+  filename <- paste0("../2_Publication_Data/3_Median/Figures_Concentration_Boxplots/","V3_Figure_Concen_",a,"_",current_date,"_","boxplot.png")
+  
+  #Create PPP specific plot table
+  
+  df <- Median_perCountry_plot%>% 
+    filter(PPP == i) %>% 
+    ungroup()
+  
+  
+  
+  #safe table
+  write.xlsx(df,rel_table_PPP_name)
+  
+  
+  Conc_plot <- Boxplot3(df)+ggtitle(Freq_plot_title) +
+    labs(YLABTitle,fill= "Farmtype")
+  
+  ggsave(filename,Conc_plot,width = 26,height = 28,units = "cm",bg="white") 
+  
+  
+  
+  
+}
+
+
+#7.) Create Boxplots overall measured PPP concentrations ###########
+Clean_PPP_All_CSS_boxplot <- Clean_PPP_All_CSS
+Clean_PPP_All_CSS_boxplot[Clean_PPP_All_CSS_boxplot==0] <- NA
+
+
+
+Clean_PPP_All_CSS_boxplot <- Clean_PPP_All_CSS_boxplot %>%
+  relocate(human_type,.after = 2) %>% 
+  relocate(Matrix,.after = human_type)
+
+Clean_PPP_All_CSS_boxplot$human_type[is.na(Clean_PPP_All_CSS_boxplot$human_type)] <- ""
+
+Clean_PPP_All_CSS_boxplot <-  Clean_PPP_All_CSS_boxplot %>%  
+  mutate(farmtype = if_else(human_type == "Consumer"|human_type == "Neighbour", "unclassifiable", farmtype)) %>% #change farmtype to unclassifiable with consumers and neighbours
+  mutate(farmtype = if_else(farmtype == "conventional","Conventional",farmtype))
+
+Clean_PPP_All_CSS_boxplot_ready <- as.data.frame(Observation_Description_3(Clean_PPP_All_CSS_boxplot))#Connect coloumn 3 and 4
+Clean_PPP_All_CSS_boxplot_ready$Observation <- gsub("^_","",Clean_PPP_All_CSS_boxplot_ready$Observation)
+Clean_PPP_All_CSS_boxplot_ready$Observation <- gsub("^NA_","",Clean_PPP_All_CSS_boxplot_ready$Observation)
+
+
+
+PPP_names <- colnames(Clean_PPP_All_CSS_boxplot_ready[7:221])
+
+Clean_PPP_All_CSS_boxplot_ready_plot <- Clean_PPP_All_CSS_boxplot_ready %>% 
+  pivot_longer(
+    cols = starts_with(PPP_names),
+    names_to = "PPP",
+    values_to = "Concentration" )
+Clean_PPP_All_CSS_boxplot_ready_plot$EHA = factor(Clean_PPP_All_CSS_boxplot_ready_plot$EHA, levels = c("Environment","Human","Animal"))
+
+
+for (i in PPP_names_19_most_freq){
+  
+  #Clean PPP Name
+  a <- i
+  a <- gsub(" ","_",a)
+  a <- gsub("-","_",a)
+  a <- gsub(",","_",a)
+  a <- gsub(")$","",a)
+  a <- gsub(":","",a)
+  a <- gsub("_median","",a)
+  a <- substr(a,1,20)
+  
+  
+  
+  #prepare name variables
+  rel_table_PPP_name <- paste0("../2_Publication_Data/3_Median/Tables_Concentration_Boxplots/","Table_Concen_",a,"_",current_date,"_","boxplot.xlsx")
+  Freq_plot_title <- paste0(a," Concentration per Matrix")
+  YLABTitle <- paste0(a," µg/kg")
+  filename <- paste0("../2_Publication_Data/3_Median/Figures_Concentration_Boxplots/","Figure_Concen_",a,"_",current_date,"_","boxplot.png")
+  
+  #Create PPP specific plot table
+  
+  df <- Clean_PPP_All_CSS_boxplot_ready_plot%>% 
+    filter(PPP == i) %>% 
+    ungroup()
+  
+  
+  
+  #safe table
+  write.xlsx(df,rel_table_PPP_name)
+  
+  
+  Conc_plot <- Boxplot_Conc(df)+
+    ggtitle(Freq_plot_title) +
+    labs(y=YLABTitle,fill= "Farmtype")
+  
+  ggsave(filename,Conc_plot,width = 26,height = 28,units = "cm",bg="white") 
+  
+  
+  
+  
+}
+
+Detection_Frequency_PPP <- read_excel("../2_Publication_Data/6_Urine_Update/1_Frequency_of_Occurence/PPP_Freq_Overview_All_samples_13_11_23.xlsx",sheet = 1)
+Detection_Frequency_PPP <- as.data.frame(Detection_Frequency_PPP[-c(1,2),])
+
+PPP_names_20_most_freq <- Detection_Frequency_PPP[1:25,1]
+
+PPP_names_19_most_freq <- PPP_names_20_most_freq[-3]
+
+current_date <- substr(Sys.Date(),1,10)
+current_date <- gsub("-","_",current_date)
+
+
+
+
+
+
+#8.) Calculation of Median EHA Concentration via the Matrix Medians######################################
+#8.1) Calculate Median per Matrix
+#Generate Table with only Environmental Data
+PPP_Environment <- Clean_PPP_All_CSS %>%
+  filter (EHA == "Environment")
+
+#Generate table with environmental means per CSS, farmtype and Matrix
+Environment_Matrix_Median <- PPP_Environment %>%
+  group_by (Matrix) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>% 
+  rename("Observation"="Matrix") %>% 
+  mutate(EHA="Environment",.after=1)
+
+#Human
+#Generate Table with only Environmental Data
+PPP_Human <- Clean_PPP_All_CSS %>%
+  filter (EHA == "Human")
+
+#Generate table with Human means per CSS, farmtype and Matrix
+Human_median <- PPP_Human %>%
+  group_by (human_type,Matrix) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>% 
+  ungroup()
+
+Human_median <- Observation_Description(Human_median)#Connect coloumn 1 and 2
+Human_median <- Human_median %>% 
+  mutate(EHA="Human",.after=1) %>% 
+  rename("Observation"="type")
+
+#Animal
+# Generate table with Human means per CSS, farmtype and Matrix
+PPP_Animal <- Clean_PPP_All_CSS %>% 
+  filter(EHA == "Animal")
+
+Animal_median <- PPP_Animal %>%
+  dplyr:: group_by (Matrix) %>%
+  dplyr:: summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE)))) %>% 
+  rename("Observation"="Matrix") %>% 
+  mutate(EHA="Animal",.after=1)
+
+
+#8.2 Combine Median tables---------------------------------------------------------
+Median_perMatrix <- Environment_Matrix_Median %>%
+  dplyr::bind_rows(Human_median) %>% 
+  dplyr::bind_rows(Animal_median) %>% 
+  ungroup()
+Median_perMatrix$EHA = factor(Median_perMatrix$EHA, levels = c("Environment","Human","Animal"))
+str(Median_perMatrix)
+
+write.xlsx(Median_perMatrix,"../2_Publication_Data/7_Final_Update/3_Median/Median_perMatrix_29_01_24.xlsx")
+
+
+#8.3 calculate the Median of the Median per Matrix in a compartement---------------------------------------------------------
+Median_Median_Compartement <- Median_perMatrix %>% 
+  group_by (EHA) %>%
+  summarise(across(.cols= where(is.numeric), funs(median = median(ifelse(. > 0, ., NA), na.rm = TRUE))))
+
+write.xlsx(Median_Median_Compartement,"../2_Publication_Data/7_Final_Update/3_Median/Median_Median_Compartement_29_01_2024.xlsx")
+
+
+#8.4 Calculate the Mean of the Median per Matrix in a compartement---------------------------------------
+Mean_Median_Compartement <- Median_perMatrix %>% 
+  group_by (EHA) %>%
+  summarise(across(.cols= where(is.numeric), funs(mean = mean(ifelse(. > 0, ., NA), na.rm = TRUE))))
+
+write.xlsx(Mean_Median_Compartement,"../2_Publication_Data/7_Final_Update/3_Median/Mean_Median_Compartement_29_01_2024.xlsx")
+
+

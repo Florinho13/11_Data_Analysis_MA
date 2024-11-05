@@ -41,7 +41,7 @@ overview_plot <- function(plot_dataset,sample_name,y_value,fs_shape,location,plo
     color = "black",  # Color of the mean line (you can change this as needed)
     size = 2,) +# Thickness of the line
   scale_color_manual(values = locolor , labels = c("Freudwil","Niederhasli","Läufelfingen",
-                                                          "Heimenhausen","Heimiswil","Ueberstorf"))+ #unique function ensures that every color is selected
+                                                          "Heimenhausen","Heimiswil","Ueberstorf"))+
   scale_shape_manual(values = c(16,17), labels = c("Regenerative","Conventional"))+
   labs(color = "Location",shape="Farming System")+
   theme_minimal()
@@ -66,3 +66,6 @@ plot_prepr <- function(data_to_prepare){
   
   return(plot_prepeared)
 }
+
+
+

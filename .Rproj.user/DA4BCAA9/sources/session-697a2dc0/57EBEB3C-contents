@@ -12,7 +12,7 @@ library(ggplot2)
 #load project functions
 source("./03_R/00_functions.R")
 
-#import dataset
+#import datasets
 ph_clean <- readRDS("./01_input/pH_data_clean.rds")
 microbial_c_clean <- readRDS("./01_input/microbialC_data_clean.rds")
 microbial_n_clean <- readRDS("./01_input/microbialN_data_clean.rds")
