@@ -1,0 +1,32 @@
+#00 Information
+#Calculation of NDVI per Field on 3 different dates.
+#Code created by Florian Christ as part of the Master Thesis 01.11.2024
+#used R Version. 4.4.1 2024-06-14 ucrt
+install.packages("terra")
+
+#1. import libraries and functions -----------------------------
+library(openxlsx)
+library(readr)
+
+library(tidyverse)
+
+#raster data manipulation
+library(terra)
+library(sf)
+
+source("./03_R/00_functions.R")
+
+#2. import datasets -------------------------
+# import all field polygons
+gpkg_files <- list.files(path = "./01_input/01_NDVI/03_Field_Polygons", pattern = "*.gpkg", full.names = TRUE)
+
+for(file in gpkg_files){
+  field <- st_read(file)
+  filename <- tools::file_path_sans_ext(basename(file))
+  assign(filename,field)
+}
+
+
+# import all required sentinel 2 data
+
+plot(Field_Code_2_2_1)
