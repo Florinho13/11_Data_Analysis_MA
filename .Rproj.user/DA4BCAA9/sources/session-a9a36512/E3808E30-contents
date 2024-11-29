@@ -70,6 +70,8 @@ plot_prepr <- function(data_to_prepare){
 
 
 #5. NDVI calculation function #####
-calculate_ndvi <- function(b4, b8) {
-  (b8 - b4) / (b8 + b4)
+calculate_ndvi <- function(b4_name, b8_name) {
+  b4 <- get(b4_name)    #using the get function name corresponding raster data is accessed.
+  b8 <- get(b8_name)
+  (b8 - b4) / (b8 + b4) #calculate NDVI
 }
