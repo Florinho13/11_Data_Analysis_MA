@@ -85,15 +85,46 @@ for (name in names(ndvi_list)){
 }
 
 
+#4. Prepare NDVI per field calculations and visualisations
+field_polygons <- ls(pattern = "Field_Code")
+
+
+#transform to EPSG32632
+for(name in field_polygons){
+  polygon_data <- get(name)
+  
+  polygon_trans_to_32632(polygon_data,name)
+  }
 
 
 
 
+#create field extents
+#list of fields with transformed ellipsoid
+transformed_fields <- ls(pattern = "^field_[0-9]_[0-9]_[0-9]$")
+
+list_of_extents <- list() #prepare list containing field extents
+
+for (name in transformed_fields){
+  #create name for field extents
+  extent_name <- paste(name,"extent",sep = "_")
+  
+  #get the field corresponding sf
+  field <- get(name)
+  
+  #create the extent shapefile.
+  extent_field <- ext(field)
+  
+  #create list of field extenr 
+  list_of_extents <- append(list_of_extents,extent_name)
+  
+  #assign extent name to the field.
+  assign(extent_name, extent_field)
+}
 
 
-field_1_1_1_extent <- ext(field_1_1_1)
-field_1_1_1 <- st_transform(Field_Code_1_1_1, crs = 32632)
-st_crs(field_1_1_1)
+
+
 ndvi_cropped <- crop(ndvi_list[["ndvi_T32TMT_20240203T103231"]],field_1_1_1_extent)
 
 plot(ndvi_list[["ndvi_T32TMT_20240203T103231"]],col = terrain.colors(50),ext = field_1_1_1_extent)

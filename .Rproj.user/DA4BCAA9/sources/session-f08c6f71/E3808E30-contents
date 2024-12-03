@@ -78,9 +78,9 @@ calculate_ndvi <- function(b4_name, b8_name) {
 
 
 #6. Adjust Ellipsoid to the one used in Sentinel 2 EPSG 32632
-polygon_trans_to_32632 <- function(polygon_data_to_transform){
+polygon_trans_to_32632 <- function(polygon_data_to_transform,name){
   #name for transformed polygon
-  polygon_name <- paste("field", substr(name(polygon_data_to_transform),12,16),sep = "_")
+  polygon_name <- paste("field", substr(name,12,16),sep = "_")
   
   #transform polygon
   transformed_polygon <- st_transform(polygon_data_to_transform, crs = 32632)
