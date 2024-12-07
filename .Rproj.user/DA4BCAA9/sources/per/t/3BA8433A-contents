@@ -123,7 +123,11 @@ for (name in transformed_fields){
 }
 
 
+# Combine all extent polygons into one SpatVector
+all_extents <- do.call(rbind, list_of_extents)
 
+# Plot all extents
+plot(all_extents, col = NA, border = "red", main = "Field Extents")
 
 ndvi_cropped <- crop(ndvi_list[["ndvi_T32TMT_20240203T103231"]],field_1_1_1_extent)
 
