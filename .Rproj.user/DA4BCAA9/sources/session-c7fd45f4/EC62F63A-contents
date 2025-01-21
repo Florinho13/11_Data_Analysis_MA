@@ -172,7 +172,14 @@ for (elem in vec_elements){
   #calculate column containing the cation exchange capacity
   KAK_NaMgAlKMn_clean_plus <- KAK_NaMgAlKMn_clean_plus %>% 
     mutate(!!coln_CEC := (!!sym(coln_mg_kg) /molare_masse)*e_Ladung)
-    
-    
   
 }
+
+KAK_NaMgAlKMn_clean_plus_ordered_selected <- KAK_NaMgAlKMn_clean_plus_ordered %>% 
+  select(2,3,6:25)
+
+KAK_combined <- KAK_Ca_clean %>% 
+  left_join(KAK_NaMgAlKMn_clean_plus_ordered_selected,by = c("sample" = "sample", "replicate" = "replicate"),keep = FALSE)
+
+write.xlsx(KAK_combined,"./02_output/KAK_all_excel_2024_09_20.xlsx")
+saveRDS(KAK_combined,"./01_input/KAK_all_2024_09_20.rds")
