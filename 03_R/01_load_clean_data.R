@@ -32,6 +32,10 @@ plant_height <- read.xlsx("./01_input/Plant_Health.xlsx",sheet="höhe")
 #Chlorophyll content
 plant_chlorophyll <- read.xlsx("./01_input/Plant_Health.xlsx",sheet = "chlorophyll")
 
+#bulk density
+#bulk density
+bulk_density <- read.xlsx("./01_input/BulkDensity_MA_final.xlsx",sheet = "BD")
+
 
 #KAK
 #results KAK Ca
@@ -183,3 +187,13 @@ KAK_combined <- KAK_Ca_clean %>%
 
 write.xlsx(KAK_combined,"./02_output/KAK_all_excel_2024_09_20.xlsx")
 saveRDS(KAK_combined,"./01_input/KAK_all_2024_09_20.rds")
+
+#8. clean Bulk Density data#####
+bulk_density_clean <- bulk_density[1:64,1:10] %>% 
+  mutate("replicate" = str_sub(sample,7,7),.after = 1) %>% 
+  mutate("sample_name" = str_sub(sample,1,5),.after = 1) %>% 
+  mutate(Put.in.the.oven = convertToDateTime(Put.in.the.oven)) %>% 
+  mutate(weighing.day = convertToDateTime(weighing.day)) %>% 
+  select(-sample)
+
+saveRDS(bulk_density_clean,"./01_input/bulk_density_clean.rds")
