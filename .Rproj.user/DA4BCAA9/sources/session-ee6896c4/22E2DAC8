@@ -1,9 +1,9 @@
 {
     "id": "22E2DAC8",
-    "path": null,
-    "project_path": null,
+    "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/08_CNS_analysis.R",
+    "project_path": "03_R/08_CNS_analysis.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "3900393270",
     "contents": "",
     "dirty": false,
     "created": 1737891108625.0,
@@ -12,14 +12,16 @@
     "properties": {
         "tempName": "Untitled1",
         "source_window_id": "",
-        "Source": "Source"
+        "Source": "Source",
+        "cursorPosition": "53,0",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 3115355397176,
-    "encoding": "",
+    "lastKnownWriteTime": 1737895066,
+    "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1737891108625,
+    "last_content_update": 1737895066274,
     "read_only": false,
     "read_only_alternatives": []
 }

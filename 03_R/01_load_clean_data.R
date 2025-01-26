@@ -211,5 +211,13 @@ saveRDS(bulk_density_clean,"./01_input/bulk_density_clean.rds")
 #9. clean CNS measurement data#####
 CNS_data_clean <- CNS_data %>% 
   mutate(Name = str_replace(Name,"Z",""),
-         Name = str_replace(Name,"\\.",""))
-  
+         Name = str_replace(Name,"\\.",""),
+         C_fraction = substr(Name,8,8),.after = Name, 
+         C_fraction = if_else(C_fraction == "b","normal","muffled"),
+         replicate = substr(Name,7,7),
+         Name = substr(Name,1,5)) %>% 
+  rename("sample_name"= "Name")
+
+saveRDS(CNS_data_clean,"./01_input/CNS_data_clean.rds")
+
+

@@ -215,7 +215,8 @@ CNS_data_clean <- CNS_data %>%
          C_fraction = substr(Name,8,8),.after = Name, 
          C_fraction = if_else(C_fraction == "b","normal","muffled"),
          replicate = substr(Name,7,7),
-         Name = substr(Name,1,5))
+         Name = substr(Name,1,5)) %>% 
+  rename("sample_name"= "Name")
 
 saveRDS(CNS_data_clean,"./01_input/CNS_data_clean.rds")
 
