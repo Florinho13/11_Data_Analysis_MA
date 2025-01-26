@@ -37,6 +37,10 @@ plant_chlorophyll <- read.xlsx("./01_input/Plant_Health.xlsx",sheet = "chlorophy
 bulk_density <- read.xlsx("./01_input/BulkDensity_MA_final.xlsx",sheet = "BD")
 
 
+#CNS measurement data
+CNS_data <- read.xlsx("./01_input/MaChr_Florian_resultsCNS_2024_12_03.xlsx", sheet = "CNS")
+
+
 #KAK
 #results KAK Ca
 KAK_Ca <- read.xlsx("./01_input/2024_09_20_KAK_all_Florian.xlsx",sheet="KAK_results_Ca")
@@ -179,11 +183,15 @@ for (elem in vec_elements){
   
 }
 
+KAK_NaMgAlKMn_clean_plus_ordered <- KAK_NaMgAlKMn_clean_plus %>% 
+  select(1:5,sort(names(KAK_NaMgAlKMn_clean_plus)[6:25]))
+
 KAK_NaMgAlKMn_clean_plus_ordered_selected <- KAK_NaMgAlKMn_clean_plus_ordered %>% 
   select(2,3,6:25)
 
 KAK_combined <- KAK_Ca_clean %>% 
-  left_join(KAK_NaMgAlKMn_clean_plus_ordered_selected,by = c("sample" = "sample", "replicate" = "replicate"),keep = FALSE)
+  left_join(KAK_NaMgAlKMn_clean_plus_ordered_selected,by = c("sample" = "sample", "replicate" = "replicate"),keep = FALSE) %>% 
+  rename("sample_name" = "sample")
 
 write.xlsx(KAK_combined,"./02_output/KAK_all_excel_2024_09_20.xlsx")
 saveRDS(KAK_combined,"./01_input/KAK_all_2024_09_20.rds")
@@ -194,6 +202,21 @@ bulk_density_clean <- bulk_density[1:64,1:10] %>%
   mutate("sample_name" = str_sub(sample,1,5),.after = 1) %>% 
   mutate(Put.in.the.oven = convertToDateTime(Put.in.the.oven)) %>% 
   mutate(weighing.day = convertToDateTime(weighing.day)) %>% 
+  rename("BD_g_cm3"="BD_g_cm3)") %>% 
   select(-sample)
 
 saveRDS(bulk_density_clean,"./01_input/bulk_density_clean.rds")
+
+
+#9. clean CNS measurement data#####
+CNS_data_clean <- CNS_data %>% 
+  mutate(Name = str_replace(Name,"Z",""),
+         Name = str_replace(Name,"\\.",""),
+         C_fraction = substr(Name,8,8),.after = Name, 
+         C_fraction = if_else(C_fraction == "b","normal","muffled"),
+         replicate = substr(Name,7,7),
+         Name = substr(Name,1,5))
+
+saveRDS(CNS_data_clean,"./01_input/CNS_data_clean.rds")
+
+

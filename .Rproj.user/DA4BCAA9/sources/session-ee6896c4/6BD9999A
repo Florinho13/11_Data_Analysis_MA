@@ -1,0 +1,25 @@
+{
+    "id": "6BD9999A",
+    "path": null,
+    "project_path": null,
+    "type": "r_code_browser",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1737733275108.0,
+    "source_on_save": false,
+    "relative_order": 12,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "context": "package:dplyr:::if_else"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1737721660,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1737733275108,
+    "read_only": false,
+    "read_only_alternatives": []
+}
