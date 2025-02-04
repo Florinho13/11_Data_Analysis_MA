@@ -1,0 +1,15 @@
+#script to create a c
+#Code created by Florian Christ as part of the Master Thesis
+#used R Version. 4.4.1 2024-06-14 ucrt
+
+
+#00_Setup_Environment######
+#import libraries
+library(tidyverse)
+library(ggplot2)
+
+
+#load project functions
+source("./03_R/00_functions.R")
+
+#import datasets

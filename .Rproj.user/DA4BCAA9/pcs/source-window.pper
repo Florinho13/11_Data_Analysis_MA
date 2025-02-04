@@ -4,22 +4,22 @@
             "ordinal": 15,
             "x": 0,
             "y": 0,
-            "width": 850,
-            "height": 850
+            "width": 1117,
+            "height": 1088
+        },
+        "wm5ycqmge1ivn": {
+            "ordinal": 20,
+            "x": 240,
+            "y": 19,
+            "width": 1050,
+            "height": 1021
         },
         "wmsmrdai87hdh": {
             "ordinal": 18,
-            "x": 0,
-            "y": 0,
-            "width": 1706,
-            "height": 866
-        },
-        "wfryres23676s": {
-            "ordinal": 19,
-            "x": 50,
-            "y": 81,
-            "width": 1384,
-            "height": 1316
+            "x": 13,
+            "y": 12,
+            "width": 2258,
+            "height": 1109
         }
     }
 }
