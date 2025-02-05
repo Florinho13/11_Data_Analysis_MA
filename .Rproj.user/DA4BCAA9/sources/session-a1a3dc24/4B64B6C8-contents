@@ -7,6 +7,8 @@
 library(tidyverse)
 library(soiltexture)
 library(ggplot2)
+library(openxlsx)
+
 
 #source functions
 source("./03_R/00_functions.R")
@@ -60,7 +62,7 @@ TT.plot(
   tri.data = fields_texture_averaged_clean_r,
   col = fields_texture_averaged_clean_r$color,
   pch = ifelse(fields_texture_averaged_clean_r$farming_system=="1",1,6),
-  lwd = 2.5,
+  lwd = 4,
   cex = 2.2,
   main = "Soil Classification on Analysed fields",
   css.lab= c("[%]Clay 0-2 µm","[%]Silt 2-63µm","[%]Sand 63-2000µm")
@@ -114,4 +116,18 @@ legend(x=82.4,y=76,
 dev.off()
 
 #3.3 Define soil classes#####
+fields_texture_averaged_clean_r_classification <- fields_texture_averaged_clean_r %>%
+  mutate(Soil_Class = TT.points.in.classes(
+    tri.data = fields_texture_averaged_clean_r[, c("SAND", "SILT", "CLAY")],  # Select fraction columns
+    class.sys = "USDA.TT"  # Choose classification system
+  ))
 
+write.xlsx(fields_texture_averaged_clean_r_classification,"./02_output/01_texture/fields_texture_classification.xlsx")
+
+plots_texture_averaged_clean_r_classification <- plots_texture_averaged_clean_r %>%
+  mutate(Soil_Class = TT.points.in.classes(
+    tri.data = plots_texture_averaged_clean_r[, c("SAND", "SILT", "CLAY")],  # Select fraction columns
+    class.sys = "USDA.TT"  # Choose classification system
+  ))
+
+write.xlsx(plots_texture_averaged_clean_r_classification,"./02_output/01_texture/plots_texture_classification.xlsx")

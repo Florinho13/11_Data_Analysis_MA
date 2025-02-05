@@ -55,7 +55,7 @@ plot_prepr <- function(data_to_prepare){
   plot_prepeared <- data_to_prepare %>% 
   mutate(location = substr(sample_name,1,1),
          farming_system = substr(sample_name,3,3),
-         plot = substr(sample_name,5,5))
+         plot = substr(sample_name,5,5),.after=1)
   
   location_colors <- map_colours(plot_prepeared$location)
   
