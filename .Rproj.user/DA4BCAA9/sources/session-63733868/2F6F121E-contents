@@ -9,6 +9,7 @@ library(tidyverse)
 library(ggplot2)
 library(GGally)
 library(knitr)
+library(flextable)
 library(kableExtra)
 library(officer)
 library(FactoMineR)
@@ -73,7 +74,7 @@ styled_table <- summary_table_clean %>%
   flextable()
 
 
-
+styled_table
 
 #03 Principal Component Analysis######
 #3.1 Data preparation PCA
