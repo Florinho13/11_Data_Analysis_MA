@@ -3,9 +3,9 @@
     "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/09_soil_combined.R",
     "project_path": "03_R/09_soil_combined.R",
     "type": "r_source",
-    "hash": "3286684757",
+    "hash": "0",
     "contents": "",
-    "dirty": false,
+    "dirty": true,
     "created": 1738685594113.0,
     "source_on_save": false,
     "relative_order": 10,
@@ -13,15 +13,15 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "347,4",
-        "scrollLine": "327"
+        "cursorPosition": "92,0",
+        "scrollLine": "92"
     },
     "folds": "",
     "lastKnownWriteTime": 1740925261,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1740925261259,
+    "last_content_update": 1744367533834,
     "read_only": false,
     "read_only_alternatives": []
 }

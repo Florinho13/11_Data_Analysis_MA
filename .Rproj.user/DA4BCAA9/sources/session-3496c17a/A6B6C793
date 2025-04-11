@@ -1,27 +1,27 @@
 {
-    "id": "46F82476",
-    "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/00_functions.R",
-    "project_path": "03_R/00_functions.R",
+    "id": "A6B6C793",
+    "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/10_soil_PCA.R",
+    "project_path": "03_R/10_soil_PCA.R",
     "type": "r_source",
-    "hash": "4217263910",
+    "hash": "3190198157",
     "contents": "",
     "dirty": false,
-    "created": 1737725025127.0,
+    "created": 1744366721096.0,
     "source_on_save": false,
     "relative_order": 8,
     "properties": {
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "91,0",
-        "scrollLine": "56"
+        "cursorPosition": "62,0",
+        "scrollLine": "60"
     },
     "folds": "",
-    "lastKnownWriteTime": 1740586004,
+    "lastKnownWriteTime": 1744369196,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1740586004894,
+    "last_content_update": 1744369196408,
     "read_only": false,
     "read_only_alternatives": []
 }
