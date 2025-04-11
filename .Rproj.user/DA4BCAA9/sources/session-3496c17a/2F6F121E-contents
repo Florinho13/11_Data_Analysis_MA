@@ -31,13 +31,13 @@ soil_combined_rp <- plot_prepr(soil_combined)
 
 
 soil_combined_rp_short <- soil_combined_rp %>% 
-  select(-c(12,15,17,19,21,23,29))
+  select(-c(12,15,17,19,21,23,30))
 
 ggpairs(soil_combined_rp,columns = 5:32)
 
-ggpairs(soil_combined_rp_short,columns = c(5,7:11,18:23,25),ggplot2::aes(colour=soil_combined_rp_short$farming_system, alpha = 0.5))
+ggpairs(soil_combined_rp_short,columns = c(5,7:11,18:23,25,26),ggplot2::aes(colour=soil_combined_rp_short$farming_system, alpha = 0.5))
 
-soil_comb_selected <- as.data.frame(soil_combined_rp_short[5:25])
+soil_comb_selected <- as.data.frame(soil_combined_rp_short[5:26])
 ggcorrplot(soil_comb_selected, method = c("pairwise.complete.obs", "spearman"),
        label = TRUE,
        insig = "pch")
@@ -46,6 +46,20 @@ ggcorrplot(soil_comb_selected, method = c("pairwise.complete.obs", "spearman"),
 summary(soil_combined$Hplus_conc_mol_l)
 
 options(scipen=999)
+#create vectors for variable categories
+physical_soil_variables <- c("clay","silt","sand","mean_BD_g_cm3")
+chemical_soil_variables <- c("pH","Hplus_conc_mol_l","Ca_aus_kation_mmol/kg",
+                             "K_aus_kation_mmol_kg","Mg_aus_kation_mmol_kg",
+                             "Mn_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
+                             "cec_NaMgCaKAl_mmol_kg","N%_normal","C%_normal",
+                             "C/N_normal","Corg")
+biological_soil_variables <- c("microbial_c","microbial_N")
+
+#create data frame according to variable category
+
+
+soil_combined_rp_biol
+
 
 summary_table <- soil_combined_rp_numeric_cl %>%
   summarise_all(list(
@@ -76,7 +90,7 @@ parameter_names_clean <- list( "pH" = "pH","Hplus_conc_mol_l" = "H+ concentratio
                               "microbial_c" = "Microbial C", "microbial_n" = "Microbial N", "Ca_aus_kation_mmol/kg" = "CEC Ca",
                               "K_aus_kation_mmol_kg" = "CEC K", "Mg_aus_kation_mmol_kg" = "CEC Mg",
                               "Mn_aus_kation_mmol_kg" = "CEC Mn", "Na_aus_kation_mmol_kg" = "CEC Na", "Corg" = "Corg",
-                              "cec_NaMgCaKAl_mmol_kg" = "CEC NaMgCaKAl","N%_normal" = "N content", "C%_normal" = "C content",
+                              "cec_NaMgCaKAl_mmol_kg" = "CEC NaMgCaKAl","base_saturation" = "base_saturation","N%_normal" = "N content", "C%_normal" = "C content",
                               "C/N_normal" = "C/N ratio", "mean_BD_g_cm3" = "Bulk density")
 
 summary_table_clean <- summary_table_clean %>% 
@@ -103,7 +117,7 @@ physical_soil_variables <- c("clay","silt","sand","mean_BD_g_cm3")
 chemical_soil_variables <- c("pH","Hplus_conc_mol_l","Ca_aus_kation_mmol/kg",
                              "K_aus_kation_mmol_kg","Mg_aus_kation_mmol_kg",
                              "Mn_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
-                             "cec_NaMgCaKAl_mmol_kg","N%_normal","C%_normal",
+                             "cec_NaMgCaKAl_mmol_kg","base_saturation","N%_normal","C%_normal",
                              "C/N_normal","Corg")
 biological_soil_variables <- c("microbial_c","microbial_N")
 

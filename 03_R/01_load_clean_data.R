@@ -11,6 +11,9 @@ library(janitor)
 
 
 #2. import datasets ---------------------------------
+#create date for storing
+today <- format(Sys.Date(), "%Y_%m_%d")
+
 #texture data
 texture_data <- read.csv("./01_input/Christ_MSc_Texture_all.txt")
 #write.xlsx(texture_data,"./01_input/christ_msc_texture_all.xlsx")
@@ -185,6 +188,11 @@ for (elem in vec_elements){
   
 }
 
+#replace all values below 0 with 0
+KAK_NaMgAlKMn_clean_plus <- KAK_NaMgAlKMn_clean_plus %>% 
+  mutate(across(where(is.numeric),~ifelse(.<0,0,.)))
+
+#order values alphabetical in the columns
 KAK_NaMgAlKMn_clean_plus_ordered <- KAK_NaMgAlKMn_clean_plus %>% 
   select(1:5,sort(names(KAK_NaMgAlKMn_clean_plus)[6:25]))
 
@@ -198,12 +206,16 @@ KAK_combined <- KAK_Ca_clean %>%
 
 KAK_combined_soilcomb <- KAK_combined %>% 
   select(-c(1,4,5,6,7,10,8,9,15,16,19,20,23,24,27,28,31,32)) %>% 
-  mutate(cec_NaMgCaKAl_mmol_kg = rowSums(select(.,4,5,7,9,13))) %>% 
+  mutate(cec_NaMgCaKAl_mmol_kg = rowSums(select(.,4,5,7,9,13))) %>%
+  mutate(base_saturation = (rowSums(select(.,4,7,9,13))/cec_NaMgCaKAl_mmol_kg)*100) %>% 
   group_by(sample_name) %>% 
   summarise(across(where(is.numeric),~ mean(.x,na.rm = TRUE)))
 
-write.xlsx(KAK_combined,"./02_output/KAK_all_excel_2024_09_20.xlsx")
-saveRDS(KAK_combined,"./01_input/KAK_all_2024_09_20.rds")
+#create date for storing
+today <- format(Sys.Date(), "%Y_%m_%d")
+
+write.xlsx(KAK_combined,paste("./02_output/03_KAK/KAK_all_excel_",today,".xlsx",sep = ""))
+saveRDS(KAK_combined,paste("./01_input/KAK_all_.rds",sep = ""))
 
 #8. clean Bulk Density data#####
 bulk_density_clean <- bulk_density[1:64,1:10] %>% 
@@ -214,7 +226,7 @@ bulk_density_clean <- bulk_density[1:64,1:10] %>%
   rename("BD_g_cm3"="BD_g_cm3)") %>% 
   select(-sample)
 
-saveRDS(bulk_density_clean,"./01_input/bulk_density_clean.rds")
+saveRDS(bulk_density_clean,paste("./01_input/bulk_density_clean",today,".rds",sep = ""))
 
 bulk_density_clean_soilcomb <- bulk_density_clean %>% 
   select(-c(3:8,10,11)) %>% 
@@ -281,4 +293,4 @@ soil_data_combined <- pH_data_clean %>%
   left_join(bulk_density_clean_soilcomb,by = "sample_name")
 
 saveRDS(soil_data_combined,"./01_input/soil_data_combined.rds")  
-write.xlsx(soil_data_combined,"./01_input/soil_data_combined_2025_02_04.xlsx")
+write.xlsx(soil_data_combined,paste("./01_input/soil_data_combined_",today,".xlsx",sep = ""))
