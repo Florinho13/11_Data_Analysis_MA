@@ -1,7 +1,7 @@
-#script for CNS analysis
+#script for soil results ploting
 #Code created by Florian Christ as part of the Master Thesis
 #used R Version. 4.4.1 2024-06-14 ucrt
-
+#all soil plots despite texture are ploted in this script.
 
 #00_Setup_Environment######
 #import libraries
@@ -318,7 +318,7 @@ ph_plot <- thesis_plot(ph_data_rp,ph_data_rp$sample_name,ph_data_rp$measurement,
   labs(y="pH value")
 
 ggsave("./02_output/05_pH/pH_results.png",plot = ph_plot,
-       width = 19, height=12, units = "cm", dpi = 300)
+       width = 19, height=9, units = "cm", dpi = 300)
 
 
 #4.2.1 biological soil parameter microbial biomass####
@@ -352,8 +352,27 @@ biological_plot
 
 
 #4.3.1 physical soil parameter bulk density####
-physical
+bulk_density_data_rp <- physical_rp_overview %>%
+  filter(variable == "Bulk density (g/cm3)") %>% 
+  mutate(variable = substr(variable,1,12))
 
+#calculate mean values per farming system
+mean_lines <- bulk_density_data_rp %>% 
+  group_by(variable,farming_system) %>% 
+  summarise(mean_value = mean(measurement,na.rm=TRUE),.groups = "drop")
+
+write.xlsx(mean_lines,"./02_output/07_bulk_density/bulk_density_fs_means.xlsx")
+
+#plot bulk density
+bulk_density_plot <- thesis_plot(bulk_density_data_rp,bulk_density_data_rp$sample_name,
+                                 bulk_density_data_rp$measurement,mean_lines)+
+  ggtitle("Bulk density per field")+
+  labs(y="g/cm3")
+
+bulk_density_plot
+
+ggsave("./02_output/07_bulk_density/bulk_density_results.png",plot = bulk_density_plot,
+       width = 19, height=9, units = "cm", dpi = 300)
 # ggplot(soil_physical,aes(x=variable,y=measurement))+
 #   stat_halfeye(alpha=0.5)+
 #   stat_interval(.width=c(0.5,0.75,0.95),alpha=0.3)+
