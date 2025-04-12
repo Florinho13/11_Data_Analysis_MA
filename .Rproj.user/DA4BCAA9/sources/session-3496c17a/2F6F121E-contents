@@ -319,6 +319,41 @@ ph_plot <- thesis_plot(ph_data_rp,ph_data_rp$sample_name,ph_data_rp$measurement,
 
 ggsave("./02_output/05_pH/pH_results.png",plot = ph_plot,
        width = 19, height=12, units = "cm", dpi = 300)
+
+
+#4.2.1 biological soil parameter microbial biomass####
+
+
+#adjust variable names
+biological_rp_overview <- biological_rp_overview %>% 
+  mutate(variable = substr(variable,1,11))
+
+#calculate mean values per farming system
+mean_lines <- biological_rp_overview %>% 
+  group_by(variable,farming_system) %>% 
+  summarise(mean_value = mean(measurement,na.rm=TRUE),.groups = "drop")
+
+write.xlsx(mean_lines,"./02_output/06_biological/biological_fs_means.xlsx")
+
+
+
+
+biological_plot <- thesis_plot(biological_rp_overview,biological_rp_overview$sample_name,
+                               biological_rp_overview$measurement,mean_lines)+
+  ggtitle("Microbial Biomass per field")+
+  labs(y="mg/kg")+
+  facet_wrap(vars(variable),scales = "free_y")
+
+
+ggsave("./02_output/06_biological/bio_results.png",plot = biological_plot,
+       width = 19, height=9, units = "cm", dpi = 300)
+
+biological_plot
+
+
+#4.3.1 physical soil parameter bulk density####
+physical
+
 # ggplot(soil_physical,aes(x=variable,y=measurement))+
 #   stat_halfeye(alpha=0.5)+
 #   stat_interval(.width=c(0.5,0.75,0.95),alpha=0.3)+
