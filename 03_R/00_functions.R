@@ -69,6 +69,7 @@ plot_prepr <- function(data_to_prepare){
 
 
 
+
 #5. NDVI calculation function #####
 calculate_ndvi <- function(b4_name, b8_name) {
   b4 <- get(b4_name)    #using the get function name corresponding raster data is accessed.
@@ -88,5 +89,23 @@ polygon_trans_to_32632 <- function(polygon_data_to_transform,name){
   assign(polygon_name,transformed_polygon, envir = .GlobalEnv)
 }
 
+
+
+#7. Clean soil parameter names function ####
+clean_soil_names <- function(current_parameter_names,df,name_of_parameter_column){
+  
+  parameter_names_clean <- list( "pH" = "pH","Hplus_conc_mol_l" = "Hplus (mol/l)","clay" = "Clay (%)", "silt" = "Silt (%)", "sand" = "Sand (%)",
+                                 "microbial_c" = "Microbial C (mg/kg)", "microbial_N" = "Microbial N (mg/kg)", "Ca_aus_kation_mmol/kg" = "CEC Ca (mmol/kg)",
+                                 "K_aus_kation_mmol_kg" = "CEC K (mmol/kg)", "Mg_aus_kation_mmol_kg" = "CEC Mg (mmol/kg)",
+                                 "Al_aus_kation_mmol_kg" = "CEC Al (mmol/kg)", "Na_aus_kation_mmol_kg" = "CEC Na (mmol/kg)", "Corg" = "Corg (%)",
+                                 "cec_NaMgCaKAl_mmol_kg" = "CEC NaMgCaKAl (mmol/kg)","base_saturation" = "Base saturation (%)","N%_normal" = "N (%)", "C%_normal" = "C (%)",
+                                 "C/N_normal" = "C/N ratio", "mean_BD_g_cm3" = "Bulk density (g/cm3)")
+  
+  df_clean_names <- df %>% 
+    mutate({{ name_of_parameter_column }} := recode({{ name_of_parameter_column }}, !!!parameter_names_clean))
+  
+  
+  return(df_clean_names)
+}
 
 

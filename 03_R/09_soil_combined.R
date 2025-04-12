@@ -49,56 +49,86 @@ options(scipen=999)
 #create vectors for variable categories
 physical_soil_variables <- c("clay","silt","sand","mean_BD_g_cm3")
 chemical_soil_variables <- c("pH","Hplus_conc_mol_l","Ca_aus_kation_mmol/kg",
-                             "K_aus_kation_mmol_kg","Mg_aus_kation_mmol_kg",
-                             "Mn_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
-                             "cec_NaMgCaKAl_mmol_kg","N%_normal","C%_normal",
-                             "C/N_normal","Corg")
+                             "Al_aus_kation_mmol_kg","K_aus_kation_mmol_kg",
+                             "Mg_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
+                             "cec_NaMgCaKAl_mmol_kg","base_saturation","N%_normal",
+                             "C%_normal","C/N_normal","Corg")
 biological_soil_variables <- c("microbial_c","microbial_N")
 
 #create data frame according to variable category
+soil_comb_bio <- soil_combined_rp_short %>% 
+  select(all_of(biological_soil_variables))
 
+soil_comb_chem <- soil_combined_rp_short %>% 
+  select(all_of(chemical_soil_variables))
 
-soil_combined_rp_biol
+soil_comb_phys <- soil_combined_rp_short %>% 
+  select(all_of(physical_soil_variables))
+  
+#create list containing all dataframes of the different variable categories
+df_list_variable_category <- list(soil_comb_bio,soil_comb_chem,soil_comb_phys)
+#create list of names
+df_names <- c("summary_biological_variables","summary_chemical_variables","summary_physical_variables")
 
+for (i in 1:length(df_list_variable_category)){
+  
+  df <- df_list_variable_category[[i]]
+  
+  summary_table <- df %>%
+    summarise_all(list(
+      Min = min, 
+      Q1 = ~quantile(., 0.25), 
+      Median = median, 
+      Mean = mean, 
+      Q3 = ~quantile(., 0.75), 
+      Max = max,
+      SD = sd
+    )) %>% 
+    pivot_longer(cols = everything(),names_to = "Parameter",values_to = "Value") %>% 
+    # Separate at the LAST underscore using regex
+    separate(Parameter,into = c("Parameter","Statistic"), sep= "_(?!.*_)") %>% 
+    pivot_wider(names_from = "Statistic", values_from = "Value")
+  
+  assign(df_names[i],summary_table)
+  rm(summary_table)
 
-summary_table <- soil_combined_rp_numeric_cl %>%
-  summarise_all(list(
-    Min = min, 
-    Q1 = ~quantile(., 0.25), 
-    Median = median, 
-    Mean = mean, 
-    Q3 = ~quantile(., 0.75), 
-    Max = max,
-    SD = sd
-  )) %>% 
-  pivot_longer(cols = everything(),names_to = "Parameter",values_to = "Value") %>% 
-  # Separate at the LAST underscore using regex
-  separate(Parameter,into = c("Parameter","Statistic"), sep= "_(?!.*_)") %>% 
-  pivot_wider(names_from = "Statistic", values_from = "Value")
+}
 
-
-
-#recalculate pH in Hplus row
-summary_table_clean <- summary_table %>%
-  mutate_at(vars(2:8),as.numeric) %>% 
-  mutate(across(where(is.numeric),~ifelse(Parameter == "Hplus_conc_mol_l",-log10(.),.))) %>%
-  mutate_at(vars(2:8), round,digits=2)
 
 #Create list to replace variable names with proper names
-parameter_names <- summary_table_clean$Parameter
-parameter_names_clean <- list( "pH" = "pH","Hplus_conc_mol_l" = "H+ concentration","clay" = "Clay content", "silt" = "Silt content", "sand" = "Sand content",
-                              "microbial_c" = "Microbial C", "microbial_n" = "Microbial N", "Ca_aus_kation_mmol/kg" = "CEC Ca",
-                              "K_aus_kation_mmol_kg" = "CEC K", "Mg_aus_kation_mmol_kg" = "CEC Mg",
-                              "Mn_aus_kation_mmol_kg" = "CEC Mn", "Na_aus_kation_mmol_kg" = "CEC Na", "Corg" = "Corg",
-                              "cec_NaMgCaKAl_mmol_kg" = "CEC NaMgCaKAl","base_saturation" = "base_saturation","N%_normal" = "N content", "C%_normal" = "C content",
-                              "C/N_normal" = "C/N ratio", "mean_BD_g_cm3" = "Bulk density")
+parameter_names <- c(
+  summary_biological_variables$Parameter,
+  summary_chemical_variables$Parameter,
+  summary_physical_variables$Parameter
+)
+parameter_names_clean <- list( "pH" = "pH","Hplus_conc_mol_l" = "Hplus (mol/l)","clay" = "Clay (%)", "silt" = "Silt (%)", "sand" = "Sand (%)",
+                              "microbial_c" = "Microbial C (mg/kg)", "microbial_N" = "Microbial N (mg/kg)", "Ca_aus_kation_mmol/kg" = "CEC Ca (mmol/kg)",
+                              "K_aus_kation_mmol_kg" = "CEC K (mmol/kg)", "Mg_aus_kation_mmol_kg" = "CEC Mg (mmol/kg)",
+                              "Al_aus_kation_mmol_kg" = "CEC Al (mmol/kg)", "Na_aus_kation_mmol_kg" = "CEC Na (mmol/kg)", "Corg" = "Corg (%)",
+                              "cec_NaMgCaKAl_mmol_kg" = "CEC NaMgCaKAl (mmol/kg)","base_saturation" = "Base saturation (%)","N%_normal" = "N (%)", "C%_normal" = "C (%)",
+                              "C/N_normal" = "C/N ratio", "mean_BD_g_cm3" = "Bulk density (g/cm3)")
 
-summary_table_clean <- summary_table_clean %>% 
-  mutate(Parameter = recode(Parameter,!!!parameter_names_clean))
 
+for (i in seq_along(df_names)) {
+  # Get the original summary table by name
+  summary_table <- get(df_names[i])
+  
+  # Apply cleaning steps
+  summary_table_clean <- summary_table %>%
+    mutate(across(2:8, as.numeric)) %>%
+    mutate(across(where(is.numeric), ~ ifelse(Parameter == "Hplus_conc_mol_l", -log10(.), .))) %>%
+    mutate_at(vars(2:8), round,digits=2) %>%
+    mutate(Parameter = recode(Parameter, !!!parameter_names_clean))
+  
+  # Assign cleaned table to a new name
+  assign(paste0(df_names[i], "_clean"), summary_table_clean)
+  
+  # Optional: remove temp object
+  rm(summary_table, summary_table_clean)
+}
 
 # Step 5: Create a styled flextable with embedded density plots
-styled_table <- summary_table_clean %>%
+styled_table <- summary_physical_variables_clean %>%
   flextable()
 
 
@@ -109,7 +139,7 @@ styled_table
 #4. Overview Figures soil variables ####
 #prepare data set for overview plotting
 soil_combined_rp_prep <- soil_combined_rp %>% 
-  select(-c(28,29,14,15,12,17,19,21,23,31,33,34)) %>%  
+  select(-c(29,30,14,15,12,17,19,21,23,32,34,35)) %>%  
   pivot_longer(cols = 5:22,names_to = "variable",values_to = "measurement")
 
 #create vectors for variable categories
@@ -128,47 +158,68 @@ soil_combined_rp_overview <- soil_combined_rp_prep %>%
     variable %in% biological_soil_variables~"biological"),.after = 4)
 
 soil_physical <- soil_combined_rp_overview %>% 
-  filter(category == "physical") %>% 
-  filter(variable == "mean_BD_g_cm3")
+  filter(category == "chemical")
 
 
-ggplot(soil_physical,aes(x=variable,y=measurement))+
-  stat_halfeye(alpha=0.5)+
-  stat_interval(.width=c(0.5,0.75,0.95),alpha=0.3)+
-  stat_dots()+
-  stat_summary(geom = "point",fun = median)+
-  coord_flip()
- # facet_wrap(~variable,scales = "free")
-  # geom_weave()+
+ggplot(soil_physical,aes(x=substr(sample_name,1,3),y=measurement,colour = farming_system))+
+  geom_boxplot()+
+  facet_wrap(vars(variable),scales = "free")
 
-ggplot(soil_physical, aes(x = measurement)) +  # Map density to x-axis
-  stat_halfeye(fill_type = "segments", alpha = 0.5) +  # Half-eye density
-  stat_interval(.width = c(0.5, 0.75, 0.95), alpha = 0.3) +  # Confidence intervals
-  #stat_summary(geom = "point", fun = median, color = "black", size = 3) +  # Median point
-  facet_wrap(~ variable, scales = "free_x") +  # Facet by variable with free scales
-  theme_minimal() +
-  labs(x = "Measurement", y = "Density", title = "Density Distributions of Soil Variables")
+ggplot(soil_physical,aes(x=substr(sample_name,1,3),y=measurement,pch=farming_system,fill = "black"))+
+  geom_point(stat = "identity", position = "identity")+
+  ggtitle(paste(" values on the different field plots\
+          and field average"))+
+ 
+  stat_summary(
+    fun = mean, 
+    geom = "point",
+    aes(shape = "Mean Value"),
+    shape = 8,
+    color = "black",  # Color of the mean line (you can change this as needed)
+    size = 2,) +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  facet_wrap(vars(variable),scales = "free")
+# Thickness of the line
 
-ggplot(soil_physical,aes(variable,measurement))+
-  stat_halfeye(fill_type = "segments", alpha=0.)+
-  coord_flip()+
-  facet_wrap(~variable)
-  stat_interval()
-  
-ggplot(soil_physical, aes(x = measurement, fill = farming_system)) +
-    stat_halfeye(
-      aes(y = 0),        # place the half-eye around y=0
-      orientation = "horizontal",
-      adjust = 0.25,
-      .width = c(0.5, 0.8, 0.95),
-      alpha = 0.4
-    )+
-  stat_interval()+
-  stat_dots()
-    facet_wrap(~ variable, scales = "free") +
-    theme_minimal() +
-    labs(
-      x = "Measurement",
-      y = NULL,
-      title = "Facet-Wrapped Half-Eyes by Variable"
-    )
+
+# ggplot(soil_physical,aes(x=variable,y=measurement))+
+#   stat_halfeye(alpha=0.5)+
+#   stat_interval(.width=c(0.5,0.75,0.95),alpha=0.3)+
+#   stat_dots()+
+#   stat_summary(geom = "point",fun = median)+
+#   coord_flip()
+#  # facet_wrap(~variable,scales = "free")
+#   # geom_weave()+
+# 
+# ggplot(soil_physical, aes(x = measurement)) +  # Map density to x-axis
+#   stat_halfeye(fill_type = "segments", alpha = 0.5) +  # Half-eye density
+#   stat_interval(.width = c(0.5, 0.75, 0.95), alpha = 0.3) +  # Confidence intervals
+#   #stat_summary(geom = "point", fun = median, color = "black", size = 3) +  # Median point
+#   facet_wrap(~ variable, scales = "free_x") +  # Facet by variable with free scales
+#   theme_minimal() +
+#   labs(x = "Measurement", y = "Density", title = "Density Distributions of Soil Variables")
+# 
+# ggplot(soil_physical,aes(variable,measurement))+
+#   stat_halfeye(fill_type = "segments", alpha=0.)+
+#   coord_flip()+
+#   facet_wrap(~variable)
+#   stat_interval()
+#   
+# ggplot(soil_physical, aes(x = measurement, fill = farming_system)) +
+#     stat_halfeye(
+#       aes(y = 0),        # place the half-eye around y=0
+#       orientation = "horizontal",
+#       adjust = 0.25,
+#       .width = c(0.5, 0.8, 0.95),
+#       alpha = 0.4
+#     )+
+#   stat_interval()+
+#   stat_dots()
+#     facet_wrap(~ variable, scales = "free") +
+#     theme_minimal() +
+#     labs(
+#       x = "Measurement",
+#       y = NULL,
+#       title = "Facet-Wrapped Half-Eyes by Variable"
+#     )
