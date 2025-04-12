@@ -116,8 +116,8 @@ clean_soil_names <- function(df,col_cont_par_name){
 }
 
 #8. Thesis plot######
-thesis_plot <- function(df,column_sample_name,measurement_values,fs_mean_lines){
-  ggplot(df,aes(x=substr(column_sample_name,1,3),y=measurement_values))+
+thesis_plot <- function(df,column_sample_name,column_measurement_values,fs_mean_lines){
+  ggplot(df,aes(x=substr(column_sample_name,1,3),y=column_measurement_values))+
     geom_point(size=2,alpha = 0.7,color = "#2C3E50")+
     geom_hline(
       data = fs_mean_lines,

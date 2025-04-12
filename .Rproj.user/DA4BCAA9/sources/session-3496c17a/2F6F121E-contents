@@ -296,6 +296,29 @@ cns_plot <- ggplot(cns_data_rp,aes(x=substr(sample_name,1,3),y=measurement))+
 ggsave("./02_output/04_CNS/cns_results.png",plot = cns_plot,
        width = 19, height=13, units = "cm", dpi = 300)
 
+#4.1.3 chemical soil parameters pH#####
+#create pH dataset
+ph_data_rp <- chemical_rp_overview %>% 
+  filter(variable == "pH")
+
+#calculate mean values of each variable per farming system
+mean_lines_ph <- ph_data_rp %>%
+  mutate(Hplus = 10^(-measurement)) %>%
+  group_by(variable, farming_system) %>%
+  summarise(
+    mean_value = -log10(mean(Hplus, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+write.xlsx(mean_lines_pH,"./02_output/05_pH/pH_fs_means.xlsx")
+  
+
+ph_plot <- thesis_plot(ph_data_rp,ph_data_rp$sample_name,ph_data_rp$measurement,mean_lines_ph)+
+  ggtitle("pH measurements per field")+
+  labs(y="pH value")
+
+ggsave("./02_output/05_pH/pH_results.png",plot = ph_plot,
+       width = 19, height=12, units = "cm", dpi = 300)
 # ggplot(soil_physical,aes(x=variable,y=measurement))+
 #   stat_halfeye(alpha=0.5)+
 #   stat_interval(.width=c(0.5,0.75,0.95),alpha=0.3)+
