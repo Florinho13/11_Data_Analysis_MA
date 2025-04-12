@@ -1,6 +1,13 @@
 #contains all functions used in MA data analysis
 library(viridis)
 
+# 00create date for storing####
+today <- format(Sys.Date(), "%Y_%m_%d")
+
+#01 farm colours
+fs_colour <- setNames(c("#66c2a5","#fc8d62"),c(1,2))
+
+
 #1. function to map colours####
 map_colours <- function(variables_to_map){
   #create color palette
@@ -92,7 +99,7 @@ polygon_trans_to_32632 <- function(polygon_data_to_transform,name){
 
 
 #7. Clean soil parameter names function ####
-clean_soil_names <- function(current_parameter_names,df,name_of_parameter_column){
+clean_soil_names <- function(df,col_cont_par_name){
   
   parameter_names_clean <- list( "pH" = "pH","Hplus_conc_mol_l" = "Hplus (mol/l)","clay" = "Clay (%)", "silt" = "Silt (%)", "sand" = "Sand (%)",
                                  "microbial_c" = "Microbial C (mg/kg)", "microbial_N" = "Microbial N (mg/kg)", "Ca_aus_kation_mmol/kg" = "CEC Ca (mmol/kg)",
@@ -102,10 +109,35 @@ clean_soil_names <- function(current_parameter_names,df,name_of_parameter_column
                                  "C/N_normal" = "C/N ratio", "mean_BD_g_cm3" = "Bulk density (g/cm3)")
   
   df_clean_names <- df %>% 
-    mutate({{ name_of_parameter_column }} := recode({{ name_of_parameter_column }}, !!!parameter_names_clean))
+    mutate({{ col_cont_par_name }} := recode({{ col_cont_par_name }}, !!!parameter_names_clean))
   
   
   return(df_clean_names)
 }
 
-
+#8. Thesis plot######
+thesis_plot <- function(df,column_sample_name,column_measurement_values,fs_mean_lines){
+  ggplot(df,aes(x=substr(column_sample_name,1,3),y=column_measurement_values))+
+    geom_point(size=2,alpha = 0.7,color = "#2C3E50")+
+    geom_hline(
+      data = fs_mean_lines,
+      aes(yintercept = mean_value, color = farming_system),
+      linetype = "dashed",
+      linewidth = 0.8
+    ) +
+    scale_color_manual(values = fs_colour,labels = c("Regenerative","Conventional"))+
+    ggtitle("CNS measurements per field")+
+    labs(x="Field ID",y="",color ="Farming System Mean:")+
+    theme_minimal()+
+    theme(
+      plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
+      axis.title.x = element_text(size=13),
+      axis.title.y = element_text(size=13),
+      axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+      axis.text.y = element_text(size =11),
+      strip.text = element_text(size = 13),
+      legend.text = element_text(size = 11),
+      legend.title = element_text(size = 13),
+      legend.position = "bottom"
+    )
+}

@@ -117,14 +117,16 @@ for (i in seq_along(df_names)) {
   summary_table_clean <- summary_table %>%
     mutate(across(2:8, as.numeric)) %>%
     mutate(across(where(is.numeric), ~ ifelse(Parameter == "Hplus_conc_mol_l", -log10(.), .))) %>%
-    mutate_at(vars(2:8), round,digits=2) %>%
-    mutate(Parameter = recode(Parameter, !!!parameter_names_clean))
+    mutate_at(vars(2:8), round,digits=2) #%>%
+    #mutate(Parameter = recode(Parameter, !!!parameter_names_clean))
+  
+  summary_table_clean <- clean_soil_names(summary_table_clean,Parameter)
   
   # Assign cleaned table to a new name
   assign(paste0(df_names[i], "_clean"), summary_table_clean)
   
   # Optional: remove temp object
-  rm(summary_table, summary_table_clean)
+  rm(summary_table, summary_table_clean,)
 }
 
 # Step 5: Create a styled flextable with embedded density plots
@@ -139,14 +141,14 @@ styled_table
 #4. Overview Figures soil variables ####
 #prepare data set for overview plotting
 soil_combined_rp_prep <- soil_combined_rp %>% 
-  select(-c(29,30,14,15,12,17,19,21,23,32,34,35)) %>%  
-  pivot_longer(cols = 5:22,names_to = "variable",values_to = "measurement")
+  select(-c(29,30,15,12,17,19,21,23,32,34,35)) %>%  
+  pivot_longer(cols = 5:24,names_to = "variable",values_to = "measurement")
 
 #create vectors for variable categories
 physical_soil_variables <- c("clay","silt","sand","mean_BD_g_cm3")
 chemical_soil_variables <- c("pH","Hplus_conc_mol_l","Ca_aus_kation_mmol/kg",
                              "K_aus_kation_mmol_kg","Mg_aus_kation_mmol_kg",
-                             "Mn_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
+                             "Al_aus_kation_mmol_kg","Na_aus_kation_mmol_kg",
                              "cec_NaMgCaKAl_mmol_kg","base_saturation","N%_normal","C%_normal",
                              "C/N_normal","Corg")
 biological_soil_variables <- c("microbial_c","microbial_N")
@@ -157,8 +159,29 @@ soil_combined_rp_overview <- soil_combined_rp_prep %>%
     variable %in% chemical_soil_variables~"chemical",
     variable %in% biological_soil_variables~"biological"),.after = 4)
 
-soil_physical <- soil_combined_rp_overview %>% 
-  filter(category == "chemical")
+#clean variable names ready for plotting
+soil_combined_rp_overview_cn <- clean_soil_names(soil_combined_rp_overview,variable)
+
+categories <- na.omit(c(unique(soil_combined_rp_overview_cn$category)))
+
+
+#create dataframe for each category
+for(name in categories){
+  category_soil_variable <- soil_combined_rp_overview_cn %>% 
+    filter(category == name)
+  
+  assign(paste0(name,"_rp_overview"),category_soil_variable)
+  
+  #store as output
+  write.xlsx(category_soil_variable,paste0("./02_output/",name,"_soil_rp_overview",today,".xlsx"))
+  
+  
+  
+  rm(category_soil_variable)
+  
+  
+}
+
 
 
 ggplot(soil_physical,aes(x=substr(sample_name,1,3),y=measurement,colour = farming_system))+
@@ -182,6 +205,96 @@ ggplot(soil_physical,aes(x=substr(sample_name,1,3),y=measurement,pch=farming_sys
   facet_wrap(vars(variable),scales = "free")
 # Thickness of the line
 
+
+#4.1.1 chemical soil parameters CEC#####
+
+cec_data_rp <- chemical_rp_overview %>% 
+  filter(str_starts(variable,"CEC")) %>% 
+  filter(!str_detect(variable,"NaMgCa")) %>% 
+  mutate(variable = substr(variable,1,6)) %>%
+  mutate(variable = reorder(variable, -measurement, FUN = mean))  
+  
+
+cec_data_rp_mean <- cec_data_rp %>% 
+  group_by(substr(sample_name,1,3),variable) %>% 
+  mutate(mean_measurement = mean(measurement),.after = measurement) %>% 
+  ungroup()
+
+
+#create viridis colour scheme for the stacked bar plot
+element_colour <- map_colours(cec_data_rp$variable)
+cec_data_rp$color <- element_colour[as.character(cec_data_rp$variable)]
+
+#plot CEC
+cec_plot <- ggplot(cec_data_rp_mean,aes(x=substr(sample_name,1,3),y = mean_measurement,
+                                fill = factor(variable)))+
+  geom_bar(stat = "identity",position = "stack")+
+  theme_minimal()+
+  ggtitle("Mean CEC per Field")+
+  labs(x="Field ID",y="mmol/kg",fill="CEC Elements \n(mmol/kg)")+
+  scale_fill_manual(values = element_colour)+
+  theme(
+    plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
+    axis.title.x = element_text(size=13),
+    axis.title.y = element_text(size=13),
+    axis.text.x = element_text(size = 11),
+    axis.text.y = element_text(size =11)
+    #legend.position = "bottom"
+  )
+
+cec_plot
+ggsave("./02_output/03_KAK/effective_cec_plot.png",plot = cec_plot,
+       width = 19, height=7.5, units = "cm", dpi = 300)
+
+#4.1.2 chemical soil parameters CNS#####
+cns_data_rp <- chemical_rp_overview %>% 
+  filter(
+    str_ends(variable, " \\(%\\)") | variable == "C/N ratio"
+  ) %>% 
+  filter(!str_starts(variable,"Base"))
+
+#define plotting order of the facets
+cns_data_rp$variable <- factor(cns_data_rp$variable, levels = c(
+  "C (%)", "Corg (%)", "N (%)", "C/N ratio"
+))
+
+#calculate mean values of each variable per farming system
+mean_lines <- cns_data_rp %>% 
+  group_by(variable,farming_system) %>% 
+  summarise(mean_value = mean(measurement,na.rm=TRUE),.groups = "drop")
+
+write.xlsx(mean_lines,"./02_output/04_CNS/cns_fs_means.xlsx")
+
+#set color for farming systems
+farm_colour <- map_colours(mean_lines$farming_system)
+
+#CNS plot
+cns_plot <- ggplot(cns_data_rp,aes(x=substr(sample_name,1,3),y=measurement))+
+  geom_point(size=2,alpha = 0.7,color = "#2C3E50")+
+  geom_hline(
+    data = mean_lines,
+    aes(yintercept = mean_value, color = farming_system),
+    linetype = "dashed",
+    linewidth = 0.8
+  ) +
+  scale_color_manual(values = fs_colour,labels = c("Regenerative","Conventional"))+
+  ggtitle("CNS measurements per field")+
+  labs(x="Field ID",y="",color ="Farming System Mean:")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
+    axis.title.x = element_text(size=13),
+    axis.title.y = element_text(size=13),
+    axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+    axis.text.y = element_text(size =11),
+    strip.text = element_text(size = 13),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 13),
+    legend.position = "bottom"
+  )+
+  facet_wrap(vars(variable),scales = "free_y")
+ggsave("./02_output/04_CNS/cns_results.png",plot = cns_plot,
+       width = 19, height=13, units = "cm", dpi = 300)
 
 # ggplot(soil_physical,aes(x=variable,y=measurement))+
 #   stat_halfeye(alpha=0.5)+
