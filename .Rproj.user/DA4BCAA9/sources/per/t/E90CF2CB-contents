@@ -1,0 +1,201 @@
+#script to gather Leaf Area data and create SLA data set.
+#Code created by Florian Christ as part of the Master Thesis 13.04.2025
+#used R Version. 4.4.1 2024-06-14 ucrt
+#00_Setup_Environment######
+#import libraries
+library(tidyverse)
+library(openxlsx)
+library(ggplot2)
+library(ggpattern)
+
+
+#load project functions
+source("./03_R/00_functions.R")
+
+
+#import data sets
+#basic chlorophyll data
+chlorophyll_data_clean <- readRDS("./01_input/plant_chlorophyll_data_clean.rds")
+
+#long chlorophyll data
+chlorophyll_data_long_clean <- readRDS("./01_input/plant_chlorophyll_data_clean_long.rds")
+
+#plant height data
+height_data_clean <- readRDS("./01_input/plant_height_data_clean.rds")
+
+#root health data
+root_health_data_clean <- readRDS("./01_input/rooth_health_clean_2025_04_13.rds")
+
+#sla data
+sla_data_clean <- readRDS("./01_input/sla_data_clean.rds")
+
+#yield data
+yield_data_clean <- read.xlsx("./01_input/yield_data_raps_2025_02_13.xlsx")
+
+
+#01 prepare datasets for plotting#####
+#basic chlorophyll data
+chlorophyll_data_clean_rp <- plot_prepr(chlorophyll_data_clean)
+
+#calculate plot medians due to skewed distribution of measurements per plot
+chlorophyll_data_clean_rp_median_plot <- chlorophyll_data_clean_rp %>% 
+  group_by(sample_name) %>% 
+  summarise(chlorophyll_front = median(chlorophyll_front),chlorophyll_mid=median(chlorophyll_mid)) %>% 
+  ungroup()
+
+write.xlsx(chlorophyll_data_clean_rp_median_plot,"./02_output/09_plant_health/chlorophyll_median_per_plot.xlsx")
+
+#combine chlorophyll_mid with chlorophyll_front to chlorophyll
+chlorophyll_overall_clean_rp <- chlorophyll_data_clean_rp_median_plot %>% 
+  mutate(chlorophyll_average = (chlorophyll_front+chlorophyll_mid)/2) %>%
+  select(-c(chlorophyll_front,chlorophyll_mid))
+
+
+#bring to long format
+chlorophyll_data_clean_rp_median_plot_long <-chlorophyll_data_clean_rp_median_plot %>% 
+  pivot_longer(cols = 2:3,values_to = "measurement",names_to = "variable")
+
+chlorophyll_overall_clean_rp_long <- chlorophyll_overall_clean_rp %>%
+  pivot_longer(cols = 2,values_to = "measurement", names_to = "variable")
+
+
+
+#plant height
+plant_height_clean_rp <- plot_prepr(height_data_clean)
+#calculate plot medians due to skewed distribution of measurements per plot
+plant_height_clean_rp_median_plot <- plant_height_clean_rp %>% 
+  group_by(sample_name) %>%
+  summarise(height_cm = median(height_cm)) %>% 
+  ungroup()
+write.xlsx(plant_height_clean_rp_median_plot,"./02_output/09_plant_health/plant_height_median_per_plot.xlsx")
+#bring to long format
+plant_height_clean_rp_median_plot_long <- plant_height_clean_rp_median_plot %>% 
+  pivot_longer(cols = 2,values_to = "measurement",names_to = "variable")
+
+
+
+
+#root health
+root_health_data_clean_rp <- plot_prepr(root_health_data_clean)
+#calculate plot means
+root_health_data_clean_rp_mean_plot <- root_health_data_clean_rp %>% 
+  group_by(sample_name) %>% 
+  summarise(root_health_score = mean(root_health_score)) %>% 
+  ungroup()
+write.xlsx(root_health_data_clean_rp_mean_plot,"./02_output/09_plant_health/root_health_mean_per_plot.xlsx")
+#bring to long format
+root_health_data_clean_rp_mean_plot_long <- root_health_data_clean_rp_mean_plot %>% 
+  pivot_longer(cols = 2,values_to = "measurement",names_to = "variable")
+ 
+#sla
+sla_data_clean_rp <- plot_prepr(sla_data_clean)
+#calculate plot means
+sla_data_clean_rp_mean_plot <- sla_data_clean_rp %>% 
+  group_by(sample_name) %>% 
+  summarise(sla = mean(sla), leaf_area_cm2 = mean(leaf_area), leaf_weight_g = mean(weight_g)) %>% 
+  ungroup()
+write.xlsx(sla_data_clean_rp_mean_plot,"./02_output/09_plant_health/sla_mean_per_plot.xlsx")
+
+#bring to long format
+sla_data_clean_rp_mean_plot_long <- sla_data_clean_rp_mean_plot %>% 
+  pivot_longer(cols = 2:4,values_to = "measurement",names_to = "variable")
+
+#combine data sets for plotting
+plant_combined_data <- bind_rows(chlorophyll_overall_clean_rp_long,
+                                 plant_height_clean_rp_median_plot_long,
+                                 root_health_data_clean_rp_mean_plot_long,
+                                 sla_data_clean_rp_mean_plot_long)
+
+plant_combined_data_rp <- plot_prepr(plant_combined_data)
+write.xlsx(plant_combined_data_rp,"./02_output/09_plant_health/combined_plant_data_rp.xlsx")
+saveRDS(plant_combined_data_rp,"./01_input/combined_pland_data_clean_rp.rds")
+
+
+#3. create plots####
+
+plant_combined_data_rp <- plant_combined_data_rp %>% 
+  filter(variable != "leaf_area_cm2") %>% 
+  filter(variable != "leaf_weight_g")
+
+plant_combined_data_rp_cn <- clean_plant_names(plant_combined_data_rp,variable)
+
+mean_lines <- plant_combined_data_rp_cn %>% 
+  group_by(variable,farming_system) %>% 
+  summarise(mean_value = mean(measurement,na.rm=TRUE),.groups = "drop")
+
+median_lines <- plant_combined_data_rp_cn %>% 
+  group_by(variable,farming_system) %>% 
+  summarise(mean_value = median(measurement,na.rm=TRUE),.groups = "drop")
+
+plant_plot <- thesis_plot(plant_combined_data_rp_cn,plant_combined_data_rp_cn$sample_name,
+                          plant_combined_data_rp_cn$measurement,mean_lines)+
+  ggtitle("Plant Parameter Measurements per Field Plot")+
+  facet_wrap(vars(variable),scales = "free_y")
+
+plant_plot
+ggsave("./02_output/09_plant_health/plant_results.png",plot = plant_plot,
+       width = 19, height=13, units = "cm", dpi = 300)
+
+
+#3.1 Chlorophyll plot
+chlorophyll_data_long_clean_rp <- plot_prepr(chlorophyll_data_long_clean)
+
+
+chlorophyll_plot <- ggplot(chlorophyll_data_long_clean_rp,aes(x=substr(sample_name,1,3),y=chlorophyll_value,fill = chlorophyll_type))+
+  geom_boxplot(alpha =0.4)+
+  ggtitle("Chlorophyll Content of Oilseed Rape leaves per field")+
+  labs(x="Field Numbers",y="SPAD values")+
+  scale_fill_manual(values = c( "#0D0887FF" ,"#F0F921FF"),c("Chlorophyll front","Chlorophyll mid"))+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
+    axis.title.x = element_text(size=13),
+    axis.title.y = element_text(size=13),
+    axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+    axis.text.y = element_text(size =11),
+    strip.text = element_text(size = 13),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 13),
+    legend.position = "bottom"
+  )
+chlorophyll_plot
+ggsave("./02_output/09_plant_health/chlorophyll_boxplot.png",plot = chlorophyll_plot,
+       width = 19, height=9, units = "cm", dpi = 300)
+
+ggplot(df,aes(x=substr(column_sample_name,1,3),y=column_measurement_values))+
+  geom_point(size=2,alpha = 0.7,color = "#2C3E50")+
+  geom_hline(
+    data = fs_mean_lines,
+    aes(yintercept = mean_value, color = farming_system),
+    linetype = "dashed",
+    linewidth = 0.8
+  ) +
+  scale_color_manual(values = fs_colour,labels = c("Regenerative","Conventional"))+
+  ggtitle("CNS measurements per field")+
+  labs(x="Field ID",y="",color ="Farming System Mean:")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
+    axis.title.x = element_text(size=13),
+    axis.title.y = element_text(size=13),
+    axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+    axis.text.y = element_text(size =11),
+    strip.text = element_text(size = 13),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 13),
+    legend.position = "bottom"
+  )
+}
+# 
+# shapiro.test(sla_data_clean_rp$sla)
+# qqnorm(sla_data_clean_rp$sla)
+# hist(chlorophyll_data_clean_rp$chlorophyll_mid)
+# 
+# wilcox.test(sla~farming_system,sla_data_clean_rp)
+# wilcox.test(chlorophyll_front~farming_system,chlorophyll_data_clean_rp)
+# 
+ggplot(sla_data_clean_rp,aes(x=substr(sample_name,1,3),y=sla))+
+   geom_boxplot()
+
+ggplot(sla_data_clean_rp,aes(x=substr(sample_name,1,5),y=sla))+
+  geom_boxplot()
