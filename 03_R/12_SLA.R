@@ -1,0 +1,31 @@
+#script to gather Leaf Area data and create SLA data set.
+#Code created by Florian Christ as part of the Master Thesis 13.04.2025
+#used R Version. 4.4.1 2024-06-14 ucrt
+
+
+#00_Setup_Environment######
+#import libraries
+library(tidyverse)
+library(openxlsx)
+library(ggplot2)
+
+
+
+#load project functions
+source("./03_R/00_functions.R")
+
+#01. load all the area data from the csv files distributed in the 01_SLA_Pictures folder. #####
+
+
+# Set the path to your folder containing the CSV files
+folder_path <- "../10_Lab/00_Bern"
+
+
+# Recursively list all CSV files
+csv_files <- list.files(path = folder_path, pattern = "Areas\\.csv$", recursive = TRUE, full.names = TRUE)
+
+
+# Apply function to all files and bind into one DataFrame
+all_data <- csv_files %>%
+  lapply(load_csv_and_add_filename_to_col) %>%
+  bind_rows()
