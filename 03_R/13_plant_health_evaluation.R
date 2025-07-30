@@ -80,7 +80,7 @@ root_health_data_clean_rp <- plot_prepr(root_health_data_clean)
 #calculate plot means
 root_health_data_clean_rp_mean_plot <- root_health_data_clean_rp %>% 
   group_by(sample_name) %>% 
-  summarise(root_health_score = mean(root_health_score)) %>% 
+  summarise(root_health_score = mean(root_health_score,na.rm = TRUE)) %>% 
   ungroup()
 write.xlsx(root_health_data_clean_rp_mean_plot,"./02_output/09_plant_health/root_health_mean_per_plot.xlsx")
 #bring to long format
@@ -92,7 +92,7 @@ sla_data_clean_rp <- plot_prepr(sla_data_clean)
 #calculate plot means
 sla_data_clean_rp_mean_plot <- sla_data_clean_rp %>% 
   group_by(sample_name) %>% 
-  summarise(sla = mean(sla), leaf_area_cm2 = mean(leaf_area), leaf_weight_g = mean(weight_g)) %>% 
+  summarise(sla = mean(sla,na.rm = TRUE), leaf_area_cm2 = mean(leaf_area), leaf_weight_g = mean(weight_g)) %>% 
   ungroup()
 write.xlsx(sla_data_clean_rp_mean_plot,"./02_output/09_plant_health/sla_mean_per_plot.xlsx")
 
@@ -116,12 +116,31 @@ plant_combined_data_rp_wide <- plant_combined_data_rp_clean %>%
   pivot_wider(names_from = variable,
               values_from = c(measurement))
 
+#add yield data
+plant_combined_data_rp_wide_prep <- plant_combined_data_rp_wide %>% 
+  mutate(farm = substr(sample_name,1,3))
+
+plant_combined_data_rp_wide_yield <- plant_combined_data_rp_wide_prep %>% 
+  left_join(yield_data_clean,by="farm") %>% 
+  relocate(farm,.before = location) %>% 
+  relocate("yield_dt_ha", .after = `Specific Leaf Area (g/cm2)`) %>% 
+  rename("Yield (dt/ha)" = "yield_dt_ha")
+
+saveRDS(plant_combined_data_rp_wide_yield,"./01_input/combined_plant_data_incl_yield.rds")
+saveRDS(plant_combined_data_rp_wide_prep,"./01_input/combined_plant_data.rds")
 #generate list of variables
 plant_comb_variables <- unique(plant_combined_data_rp_clean$variable)
 plant_comb_variables <- plant_comb_variables[1:4]
+#variables including yield
+plant_comb_variables_yield <- c(plant_comb_variables,"Yield (dt/ha)")
+
+
 
 #get subset of the data from which a subset is desired
+#exclusive yield
 df <- plant_combined_data_rp_wide[plant_comb_variables]
+#inclusive yield
+#'df <- plant_combined_data_rp_wide_yield[plant_comb_variables_yield]
   
   summary_table <- df %>%
     summarise_all(list(
@@ -172,7 +191,7 @@ plant_plot <- thesis_plot(plant_combined_data_rp_cn,plant_combined_data_rp_cn$sa
   facet_wrap(vars(variable),scales = "free_y")
 
 plant_plot
-ggsave("./02_output/09_plant_health/plant_results.png",plot = plant_plot,
+ggsave("./02_output/09_plant_health/plant_results_v2.png",plot = plant_plot,
        width = 19, height=13, units = "cm", dpi = 300)
 
 
@@ -224,7 +243,7 @@ ggplot(df,aes(x=substr(column_sample_name,1,3),y=column_measurement_values))+
     legend.title = element_text(size = 13),
     legend.position = "bottom"
   )
-}
+
 # 
 # shapiro.test(sla_data_clean_rp$sla)
 # qqnorm(sla_data_clean_rp$sla)

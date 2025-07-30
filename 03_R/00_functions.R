@@ -157,6 +157,7 @@ thesis_plot <- function(df,column_sample_name,column_measurement_values,fs_mean_
 }
 
 #9. scoring function####
+#soil health index
 score_shi <- function(df) {
   # Identify descriptive and measurement columns
   descriptive_cols <- df[, 1:4]
@@ -183,6 +184,32 @@ score_shi <- function(df) {
   return(scored_df)
 }
 
+#plant health index
+score_phi <- function(df) {
+  # Identify descriptive and measurement columns
+  descriptive_cols <- df[, 1:4]
+  measurement_cols <- df[, -(1:4)]
+  
+  # Define parameters where "less is better"
+  less_is_better <- c()
+  
+  # Apply scoring
+  scored <- measurement_cols %>%
+    mutate(across(
+      .cols = everything(),
+      .fns = ~ if (cur_column() %in% less_is_better) {
+        min(., na.rm = TRUE) / .
+      } else {
+        . / max(., na.rm = TRUE)
+      }
+    )) %>%
+    mutate(across(everything(), ~ pmin(., 1)))  # Cap at 1
+  
+  # Combine descriptive + scored data
+  scored_df <- bind_cols(descriptive_cols, scored)
+  
+  return(scored_df)
+}
 
 
 #10. load csv files considering file name for sample name column
