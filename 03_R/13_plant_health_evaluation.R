@@ -7,7 +7,7 @@ library(tidyverse)
 library(openxlsx)
 library(ggplot2)
 library(ggpattern)
-
+library(flextable)
 
 #load project functions
 source("./03_R/00_functions.R")
@@ -100,7 +100,7 @@ write.xlsx(sla_data_clean_rp_mean_plot,"./02_output/09_plant_health/sla_mean_per
 sla_data_clean_rp_mean_plot_long <- sla_data_clean_rp_mean_plot %>% 
   pivot_longer(cols = 2:4,values_to = "measurement",names_to = "variable")
 
-#combine data sets for plotting
+#2. combine data sets for plotting, generate overview table######
 plant_combined_data <- bind_rows(chlorophyll_overall_clean_rp_long,
                                  plant_height_clean_rp_median_plot_long,
                                  root_health_data_clean_rp_mean_plot_long,
@@ -110,7 +110,46 @@ plant_combined_data_rp <- plot_prepr(plant_combined_data)
 write.xlsx(plant_combined_data_rp,"./02_output/09_plant_health/combined_plant_data_rp.xlsx")
 saveRDS(plant_combined_data_rp,"./01_input/combined_pland_data_clean_rp.rds")
 
+#bring table to wide format in order to create summary table
+plant_combined_data_rp_clean <- clean_plant_names(plant_combined_data_rp,variable)
+plant_combined_data_rp_wide <- plant_combined_data_rp_clean %>% 
+  pivot_wider(names_from = variable,
+              values_from = c(measurement))
 
+#generate list of variables
+plant_comb_variables <- unique(plant_combined_data_rp_clean$variable)
+plant_comb_variables <- plant_comb_variables[1:4]
+
+#get subset of the data from which a subset is desired
+df <- plant_combined_data_rp_wide[plant_comb_variables]
+  
+  summary_table <- df %>%
+    summarise_all(list(
+      Min = ~min(., na.rm = TRUE), 
+      Q1 = ~quantile(., 0.25, na.rm = TRUE), 
+      Median = ~median(., na.rm = TRUE), 
+      Mean = ~mean(., na.rm = TRUE), 
+      Q3 = ~quantile(., 0.75, na.rm = TRUE), 
+      Max = ~max(., na.rm = TRUE),
+      SD = ~sd(., na.rm = TRUE)
+    )) %>% 
+    pivot_longer(cols = everything(),names_to = "Parameter",values_to = "Value") %>% 
+    # Separate at the LAST underscore using regex
+    separate(Parameter,into = c("Parameter","Statistic"), sep= "_(?!.*_)") %>% 
+    pivot_wider(names_from = "Statistic", values_from = "Value")
+  
+  assign("plant_summary",summary_table)
+  rm(summary_table)
+
+  # Step 5: Create a styled flextable with embedded density plots
+  styled_table <- plant_summary %>%
+    flextable()
+  
+  
+  styled_table
+  
+
+  
 #3. create plots####
 
 plant_combined_data_rp <- plant_combined_data_rp %>% 

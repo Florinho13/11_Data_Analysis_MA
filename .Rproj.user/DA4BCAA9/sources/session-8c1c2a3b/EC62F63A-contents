@@ -57,6 +57,13 @@ KAK_elements <- read.xlsx("./01_input/2024_09_20_KAK_all_Florian.xlsx",sheet="el
 #root health
 root_health_data <- read.xlsx("./01_input/results_root_health_assessment_2025_01_10.xlsx",sheet = "root_health")
 
+#results PPP soil
+PPP_results_positive <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "positive")
+PPP_results_negative <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "negative")
+PPP_results_gly_ampa <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "Gly_AMPA")
+PPP_results_gc <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "GC")
+#import weigh of analysed soil samples
+PPP_soil_weighin <- read.xlsx("./01_input/ppp_soil_weighin_florian_2025_01_20.xlsx",sheet = "weigh_in_PPP_analysis")
 
 #3. clean texture_data#####
 #Simplify sample name and set column data types
@@ -309,4 +316,24 @@ root_health_data_clean <- root_health_data %>%
 
 saveRDS(root_health_data_clean,paste("./01_input/rooth_health_clean",today,".rds",sep = ""))
 
+#12. clean PPP soil data####
+#positive
+PPP_results_positive_cl <- PPP_results_positive %>% 
+  mutate(Sample = str_replace(Sample,"_P","")) %>% 
+  rename("sample" = "Sample")
   
+#recalculate the values from ng/ml (solvent) to ng/g (soil)
+#add column with weight of the analysed soil samples.
+PPP_results_positive_weight <- PPP_results_positive_cl %>% 
+  left_join(PPP_soil_weighin[c(1,6)],by="sample")
+
+PPP_results_positive_clean_ng_g <- PPP_results_positive_weight[2:36,1:150] %>% 
+  mutate(across(everything(),~ifelse(.=="<LOQ",0,.))) %>%
+  mutate_at(vars(2:150),as.numeric) %>% 
+  mutate(across(2:149,~if_else(is.na(`weigh_que_corr.[g]`),.x,.x*15/`weigh_que_corr.[g]`)))
+
+
+rm(PPP_results_positive_cl,PPP_results_positive_weight,PPP_results_positive_clean)  
+
+
+PPP_results_negative

@@ -186,6 +186,7 @@ score_shi <- function(df) {
 
 
 #10. load csv files considering file name for sample name column
+#used for leaf area data
 load_csv_and_add_filename_to_col <- function(file_path) {
   # Get the base filename
   file_name <- basename(file_path)
