@@ -383,4 +383,5 @@ PPP_results_combined <- PPP_results_gly_ampa_clean_ng_g %>%
   left_join(PPP_results_negative_clean_ng_g,by="sample") %>% 
   left_join(PPP_results_gc_clean_ng_g,by="sample")
 
-saveRDS(PPP_results_combined,"./01_input/PPP_results_clean_2025_02_14")
+saveRDS(PPP_results_combined,"./01_input/PPP_results_clean_2025_02_14.rds")
+write.xlsx(PPP_results_combined,"./01_input/PPP_results_clean_2025_02_14.xlsx")
