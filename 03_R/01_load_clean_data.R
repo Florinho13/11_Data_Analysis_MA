@@ -58,10 +58,10 @@ KAK_elements <- read.xlsx("./01_input/2024_09_20_KAK_all_Florian.xlsx",sheet="el
 root_health_data <- read.xlsx("./01_input/results_root_health_assessment_2025_01_10.xlsx",sheet = "root_health")
 
 #results PPP soil
-PPP_results_positive <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "positive")
-PPP_results_negative <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "negative")
-PPP_results_gly_ampa <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "Gly_AMPA")
-PPP_results_gc <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_07.xlsx",sheet = "GC")
+PPP_results_positive <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_14.xlsx",sheet = "positive")
+PPP_results_negative <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_14.xlsx",sheet = "negative")
+PPP_results_gly_ampa <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_14.xlsx",sheet = "Gly_AMPA")
+PPP_results_gc <- read.xlsx("./01_input/ppp_results_florian_final_2025_02_14.xlsx",sheet = "GC")
 #import weigh of analysed soil samples
 PPP_soil_weighin <- read.xlsx("./01_input/ppp_soil_weighin_florian_2025_01_20.xlsx",sheet = "weigh_in_PPP_analysis")
 
@@ -324,16 +324,63 @@ PPP_results_positive_cl <- PPP_results_positive %>%
   
 #recalculate the values from ng/ml (solvent) to ng/g (soil)
 #add column with weight of the analysed soil samples.
+#positive
 PPP_results_positive_weight <- PPP_results_positive_cl %>% 
   left_join(PPP_soil_weighin[c(1,6)],by="sample")
 
-PPP_results_positive_clean_ng_g <- PPP_results_positive_weight[2:36,1:150] %>% 
+PPP_results_positive_clean_ng_g <- PPP_results_positive_weight[5:36,1:150] %>% 
   mutate(across(everything(),~ifelse(.=="<LOQ",0,.))) %>%
   mutate_at(vars(2:150),as.numeric) %>% 
-  mutate(across(2:149,~if_else(is.na(`weigh_que_corr.[g]`),.x,.x*15/`weigh_que_corr.[g]`)))
+  mutate(across(2:149,~if_else(is.na(`weigh_que_corr.[g]`),.x,.x*15/`weigh_que_corr.[g]`))) %>% 
+  select(-150)
 
 
-rm(PPP_results_positive_cl,PPP_results_positive_weight,PPP_results_positive_clean)  
+rm(PPP_results_positive_cl,PPP_results_positive_weight)  
+
+#negative
+
+PPP_results_negative_cl <- PPP_results_negative[6:37,1:16] %>% 
+  mutate(Sample = str_replace(Sample,"_P_neg","")) %>% 
+  rename("sample" = "Sample")
+
+PPP_results_negative_weight <- PPP_results_negative_cl %>% 
+  left_join(PPP_soil_weighin[c(1,6)], by = "sample")
+
+PPP_results_negative_clean_ng_g <- PPP_results_negative_weight %>%
+  mutate(across(everything(), ~ifelse(.=="<LOQ",0,.))) %>% 
+  mutate_at(vars(2:17),as.numeric) %>% 
+  mutate(across(2:17,~if_else(is.na(`weigh_que_corr.[g]`),.x,.x*15/`weigh_que_corr.[g]`))) %>% 
+  select(-17)
+
+rm(PPP_results_negative_cl,PPP_results_negative_weight)
+
+#gly/ampa
+PPP_results_gly_ampa_cl <- PPP_results_gly_ampa[6:37,1:3] %>% 
+  mutate(Sample = str_replace(Sample,"_G","")) %>% 
+  rename("sample" = "Sample")
+
+PPP_results_gly_ampa_clean_ng_g <- PPP_results_gly_ampa_cl %>%
+  mutate(across(everything(), ~ifelse(.=="<10",0,.)))
+
+rm(PPP_results_gly_ampa_cl)
 
 
-PPP_results_negative
+#GC
+PPP_results_gc_cl <- PPP_results_gc %>% 
+  select(c(1,5:36)) %>% 
+  pivot_longer(-'ng/g',names_to = "sample", values_to = "value") %>% 
+  pivot_wider(names_from='ng/g',values_from = "value") %>% 
+  mutate(sample = str_replace(sample,"_MR",""))
+
+PPP_results_gc_clean_ng_g <- PPP_results_gc_cl %>%
+  mutate(across(2:29, ~ifelse(grepl("^&lt",.),0,as.numeric(.))))
+
+rm(PPP_results_gc_cl)
+
+#combine
+PPP_results_combined <- PPP_results_gly_ampa_clean_ng_g %>% 
+  left_join(PPP_results_positive_clean_ng_g,by="sample") %>% 
+  left_join(PPP_results_negative_clean_ng_g,by="sample") %>% 
+  left_join(PPP_results_gc_clean_ng_g,by="sample")
+
+saveRDS(PPP_results_combined,"./01_input/PPP_results_clean_2025_02_14")
