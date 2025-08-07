@@ -19,6 +19,7 @@ source("./03_R/00_functions.R")
 
 #import datasets
 soil_combined <- readRDS("./01_input/soil_data_combined.rds")
+write.xlsx(soil_combined,"./02_output/soil_data_combined.xlsx")
 
 #1. create SHI dataframe ####
 #first preparation step

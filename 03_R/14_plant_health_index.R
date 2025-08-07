@@ -20,6 +20,7 @@ source("./03_R/00_functions.R")
 plant_data_combined_incl_yield <-  readRDS("./01_input/combined_plant_data_incl_yield.rds")
 plant_data_combined <- readRDS("./01_input/combined_plant_data.rds")
 
+write.xlsx(plant_data_combined,"./01_input/plant_data_combined.xlsx")
 #01. create PHI data frame####
 #clean combined plant data for index creation
 plant_data_combined_incl_yield_clean <- plant_data_combined_incl_yield %>% 
