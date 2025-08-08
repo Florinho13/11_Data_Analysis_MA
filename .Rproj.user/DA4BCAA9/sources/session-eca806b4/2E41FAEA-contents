@@ -19,7 +19,9 @@ source("./03_R/00_functions.R")
 #load data
 ppp_soil_all <- readRDS("./01_input/PPP_results_clean_2025_02_14.rds")
 ppp_metadata_sprint_coding <- read.xlsx("./01_input/Metadata_All_CSS_EHA_and_PPP_coding_Aug_2023.xlsx",sheet = 5)
-pnec_soil_data <- read.xlsx("./01_input/PNEC_soil_water_list_120722.xlsx", sheet = 2)[,c(1,23)]
+pnec_soil_data <- read.xlsx("./01_input/PNEC_soil_water_list_120722.xlsx", sheet = 2)[,c(2,24)]
+ppp_info_set <- read.xlsx("./01_input/PPP_Info_D2_3.xlsx")
+
 
 dir.create("./02_output/10_ppp")
 output_dir <- "./02_output/10_ppp/"
@@ -92,7 +94,15 @@ ppp_soil_all_clean_names <- rbind(current_ppp_names_cl,ppp_soil_all)
 ppp_soil_all_cleaned <- ppp_soil_all
 colnames(ppp_soil_all_cleaned)[2:194] <- ppp_soil_all_clean_names[1,2:194]
 
-#02.1 frequency analysis of PPPs overall plots#####
+saveRDS(ppp_soil_all_cleaned,"./01_input/PPP_results_clean_names_2025_02_14.rds")
+
+#clean info names
+ppp_info_set_clean <- ppp_info_set %>% 
+  mutate(Type = str_replace(Type,"^i","I"),
+         Type = str_replace(Type,"\\s*\\(metabolite\\)",""))
+
+
+#02.1.1 frequency analysis of PPPs overall plots#####
 ppp_freq_detected <- ppp_soil_all_cleaned %>% 
   summarise(across(where(is.numeric),~sum(.x>0,na.rm = T)))
 
@@ -117,8 +127,11 @@ ppp_freq_overview_t <- ppp_freq_overview_t %>%
   mutate(total_analysed_plots = total_analysed_plots) %>% 
   mutate(freq_detected_plots = freq_detected_plots)
 
+
+
 write.xlsx(ppp_freq_overview_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_plots.xlsx"))
-  
+
+ 
 #02.2 frequency analysis per field #####
 ppp_freq_detected_perfield <- ppp_soil_all_cleaned %>% 
   group_by(substr(sample,1,3)) %>% 
@@ -182,3 +195,92 @@ ppp_freq_different_fields_t <- ppp_freq_different_fields_t %>%
 
 
 write.xlsx(ppp_freq_different_fields_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_fields.xlsx"))
+
+# ppp_names <- sort(colnames(ppp_soil_all_cleaned))
+# write.csv(ppp_names,file.path(output_dir,"01_ppp_frequency/ppp_names.csv"))
+
+#2.3.1 prepare frequency plot and subsective plotting####
+ppp_soil_all_cleaned_plus <- ppp_soil_all_cleaned %>% 
+  mutate(location = substr(sample,1,1),
+         farming_system = substr(sample,3,3),
+         plot = substr(sample,5,5),.after=1)
+
+ppp_soil_all_cleaned_long <- ppp_soil_all_cleaned_plus %>% 
+  pivot_longer(cols = 5:197,
+               names_to = "ppp_compound",
+               values_to = "concentrations_ng_g") %>% 
+  mutate(detected = if_else(concentrations_ng_g > 0, 1, 0),.after = 4)
+
+#filter out Imidacloprid and Metalaxyl Metabolite as both compounds were detected in blanks
+ppp_soil_all_cleaned_long_meta <- ppp_soil_all_cleaned_long %>% 
+  left_join(ppp_info_set_clean,by = join_by("ppp_compound" == "PPP_compound_clean_name")) %>% 
+  select(-"PPP.compound") %>% 
+  filter(ppp_compound != "Imidacloprid",
+         ppp_compound != "Metalaxyl_Metabolite")
+
+ppp_soil_all_cleaned_long_freq_plot <- ppp_soil_all_cleaned_long_meta %>% 
+  group_by(sample,Type) %>% 
+  summarise(n_detected = sum(detected), .groups = "drop") %>% 
+  group_by(Type) %>% 
+  filter(sum(n_detected) > 0) %>% 
+  ungroup 
+#  filter(n_detected>0)  
+  
+
+
+
+number_of_compounds_plot <- ggplot(ppp_soil_all_cleaned_long_freq_plot,
+       aes(x = sample, y = n_detected, fill = Type))+
+  geom_bar(stat = "identity",
+           color = "black") +
+  geom_text(aes(label = ifelse(n_detected == 0, "", n_detected)),
+                position = position_stack(vjust = 0.5), size = 3)+
+  labs(title = "Number of Pesticide Compounds Detected in the Investigated Plots",
+       x = "Plot ID",
+       y = "Number of Compounds")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45),
+        legend.position = "bottom")
+
+number_of_compounds_plot
+#3.1 prepare cumulative concentration plot and subsective plotting####
+ppp_soil_all_cleaned_long_conc_plot <- ppp_soil_all_cleaned_long_meta %>% 
+  filter(ppp_compound != "Imidacloprid") %>% 
+  group_by(sample,Type) %>%
+  summarise(cumulated_concentrations_ng_g = sum(concentrations_ng_g),
+            .groups = "drop") %>% 
+  group_by(Type) %>% 
+  filter(sum(cumulated_concentrations_ng_g)>0) %>% 
+  ungroup() %>% 
+ # filter(cumulated_concentrations_ng_g>0) %>% 
+  mutate(cumulated_concentrations_ng_g = round(cumulated_concentrations_ng_g,1))
+
+
+total_concentrations <- ppp_soil_all_cleaned_long_meta %>% 
+  group_by(sample) %>% 
+  summarise(total_concentrations_ng_g = sum(concentrations_ng_g)) %>% 
+  mutate(total_concentrations_ng_g = round(total_concentrations_ng_g,1))
+
+  
+total_concentrations_plot <- ggplot(ppp_soil_all_cleaned_long_conc_plot,
+       aes(x = sample, y = cumulated_concentrations_ng_g, fill = Type))+
+  geom_bar(stat = "identity",
+           color = "black") +
+  geom_text(data = total_concentrations,
+            aes(x = sample, y = total_concentrations_ng_g, label = total_concentrations_ng_g),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = -0.2,
+            size = 3, angle=90)+
+  labs(title = "Cumulated Pesticide Concentrations Detected in the Investigated Plots",
+       x = "Plot ID",
+       y = "Concentration [ng/g]")+
+  scale_y_continuous(limits = c(0,300))+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45),
+        legend.position = "bottom")
+
+total_concentrations_plot
+
+
+#4.1 prepare risk quotient and cumulative risk plotting
+
