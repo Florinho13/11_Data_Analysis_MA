@@ -8,7 +8,9 @@
 library(tidyverse)
 library(openxlsx)
 library(ggplot2)
+library(ggttext)
 library(hrbrthemes)
+library(patchwork)
 
 
 
@@ -19,7 +21,7 @@ source("./03_R/00_functions.R")
 #load data
 ppp_soil_all <- readRDS("./01_input/PPP_results_clean_2025_02_14.rds")
 ppp_metadata_sprint_coding <- read.xlsx("./01_input/Metadata_All_CSS_EHA_and_PPP_coding_Aug_2023.xlsx",sheet = 5)
-pnec_soil_data <- read.xlsx("./01_input/PNEC_soil_water_list_120722.xlsx", sheet = 2)[,c(2,24)]
+pnec_soil_data <- read.xlsx("./01_input/PNEC_soil_water_list_120722.xlsx", sheet = 2)[,c(1,24)]
 ppp_info_set <- read.xlsx("./01_input/PPP_Info_D2_3.xlsx")
 
 
@@ -218,15 +220,38 @@ ppp_soil_all_cleaned_long_meta <- ppp_soil_all_cleaned_long %>%
   filter(ppp_compound != "Imidacloprid",
          ppp_compound != "Metalaxyl_Metabolite")
 
+type_colors <- map_colours(ppp_soil_all_cleaned_long_meta$Type)
+type_colors[1] <- "#F05B12FF"
+ppp_soil_all_cleaned_long_meta$color <- type_colors[as.character(ppp_soil_all_cleaned_long_meta$Type)]
+
+
+# Get bar index positions where the first digit changes
+vline_positions <- ppp_soil_all_cleaned_long_freq_plot %>%
+  distinct(sample) %>%                                  # one per bar
+  arrange(sample) %>%
+  mutate(location = str_sub(sample, 1, 1),              # first digit
+         index = row_number()) %>%
+  group_by(location) %>%
+  summarise(last_index = max(index), .groups = "drop") %>%
+  mutate(vline_pos = last_index + 0.5) %>%
+  pull(vline_pos)
+# Remove the last one so no line after the final location
+vline_positions <- vline_positions[-length(vline_positions)]
+
 ppp_soil_all_cleaned_long_freq_plot <- ppp_soil_all_cleaned_long_meta %>% 
   group_by(sample,Type) %>% 
   summarise(n_detected = sum(detected), .groups = "drop") %>% 
   group_by(Type) %>% 
   filter(sum(n_detected) > 0) %>% 
-  ungroup 
+  ungroup() 
 #  filter(n_detected>0)  
-  
 
+#prepare labels to be bold when regenerative sample analysed  
+samples <- unique(ppp_soil_all_cleaned_long$sample)
+
+labels <- ifelse(sub("^[0-9]_([0-9]).*", "\\1", samples) == "1",
+                 paste0("<b>", samples, "</b>"),
+                 samples)
 
 
 number_of_compounds_plot <- ggplot(ppp_soil_all_cleaned_long_freq_plot,
@@ -235,11 +260,16 @@ number_of_compounds_plot <- ggplot(ppp_soil_all_cleaned_long_freq_plot,
            color = "black") +
   geom_text(aes(label = ifelse(n_detected == 0, "", n_detected)),
                 position = position_stack(vjust = 0.5), size = 3)+
+  geom_vline(xintercept = vline_positions,
+               linetype = "dashed",
+               colour = "black")+
+  scale_fill_manual(values = type_colors)+
+  scale_x_discrete(labels = labels) +
   labs(title = "Number of Pesticide Compounds Detected in the Investigated Plots",
        x = "Plot ID",
        y = "Number of Compounds")+
   theme_minimal()+
-  theme(axis.text.x = element_text(angle = 45),
+  theme(axis.text.x = element_markdown(angle = 45, hjust = 1),
         legend.position = "bottom")
 
 number_of_compounds_plot
@@ -271,16 +301,105 @@ total_concentrations_plot <- ggplot(ppp_soil_all_cleaned_long_conc_plot,
             inherit.aes = FALSE,
             vjust = 0, hjust = -0.2,
             size = 3, angle=90)+
+  geom_vline(xintercept = vline_positions,
+             linetype = "dashed",
+             colour = "black")+
   labs(title = "Cumulated Pesticide Concentrations Detected in the Investigated Plots",
        x = "Plot ID",
        y = "Concentration [ng/g]")+
   scale_y_continuous(limits = c(0,300))+
+  scale_x_discrete(labels = labels) +
+  scale_fill_manual(values = type_colors)+
   theme_minimal()+
-  theme(axis.text.x = element_text(angle = 45),
+  theme(axis.text.x = element_markdown(angle = 45, hjust = 1),
         legend.position = "bottom")
 
 total_concentrations_plot
 
 
 #4.1 prepare risk quotient and cumulative risk plotting
+#multiplicate pnec (mg/kg) with 1000 in order to come to (ng/g)
+pnec_soil_data_clean <- pnec_soil_data %>% 
+  mutate(pnec_soil_ng_g = as.numeric(`PNEC_soil.(mg/kg)`)*1000) %>% 
+  select(-`PNEC_soil.(mg/kg)`)
+
+ppp_soil_all_cleaned_long_meta_pnec <- ppp_soil_all_cleaned_long_meta %>% 
+  left_join(pnec_soil_data_clean,by = join_by(ppp_compound == PPP_compound_clean))
+
+ppp_soil_all_cleaned_long_meta_pnec_rq <- ppp_soil_all_cleaned_long_meta_pnec %>% 
+  mutate(risk_quotient = concentrations_ng_g/pnec_soil_ng_g)
+str(ppp_soil_all_cleaned_long_meta_pnec_rq)
+
+
+ppp_soil_all_plots_cumulative_risk <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
+  group_by(sample,Type) %>% 
+  summarise(rq_cumulative = sum(risk_quotient,na.rm = TRUE),.groups = "drop") %>% 
+  group_by(Type) %>% 
+  filter(sum(rq_cumulative) > 0) %>% 
+  ungroup() 
+
+total_risk <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
+  group_by(sample) %>% 
+  summarise(total_risk = sum(risk_quotient, na.rm = TRUE)) %>% 
+  mutate(total_risk = round(total_risk,2))
+
+write_rds(total_risk,file = "01_input/ppp_total_risk.rds")
+
+cumulative_risk_plot <- ggplot(ppp_soil_all_plots_cumulative_risk,
+                               aes(x = sample, y = rq_cumulative, fill = Type))+
+  geom_bar(stat = "identity",
+           color = "black") +
+  geom_text(data = total_risk,
+            aes(x = sample, y = total_risk, label = total_risk),
+            inherit.aes = FALSE,
+            vjust = 0, hjust = -0.2,
+            size = 3, angle=90)+
+  geom_hline(aes(yintercept = 1),
+             linetype = "dashed",
+             color = "red")+
+  geom_vline(xintercept = vline_positions,
+             linetype = "dashed",
+             colour = "black")+
+  labs(title = "Cumulated Pesticide Risk Quotient in the Investigated Plots",
+       x = "Plot ID",
+       y = "Cumulated Risk Quotient")+
+  scale_y_continuous(limits = c(0,10))+
+  scale_x_discrete(labels = labels) +
+  scale_fill_manual(values = type_colors)+
+  theme_minimal()+
+  theme(axis.text.x = element_markdown(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+
+
+
+cumulative_risk_plot
+
+#4.1 combined ppp plot #####
+
+combined_plot <- number_of_compounds_plot +  
+  theme(axis.title.x = element_blank())+
+        #axis.text.x  = element_blank()) 
+  total_concentrations_plot +
+  theme(axis.title.x = element_blank())+
+        #axis.text.x  = element_blank()) 
+  cumulative_risk_plot +
+  plot_layout(ncol = 1, 
+              heights = c(1, 1, 1), 
+              guides ="collect") +
+  plot_annotation(tag_levels = 'a') & 
+  theme(legend.position = "bottom")
+
+combined_plot
+
+ggsave(
+  file.path(output_dir,"combined_plot_A4.png"),   # or .jpg
+  combined_plot,
+  width = 19,               # cm (slightly smaller than full A4 to allow margins)
+  height = 27,              # cm
+  units = "cm",
+  dpi = 300                 # 300 dpi = print quality
+)
+
+combined_plot
 
