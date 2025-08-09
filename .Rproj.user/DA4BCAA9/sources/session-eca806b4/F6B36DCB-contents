@@ -44,7 +44,7 @@ sprint_ppp_soil_long_meta <- sprint_ppp_soil_long %>%
   rename("sample" = "sprint_sample_code",
          "farming_system" = "farmtype")
 
-#01.2 get total_substances for both datasets
+#01.2 get total_substances for both datasets #####
 
 sprint_ppp_soil_long_meta_freq_plot <- sprint_ppp_soil_long_meta %>% 
   group_by(sample, farming_system) %>% 
@@ -62,17 +62,21 @@ thesis_ppp_soil_long_meta_freq_plot <- ppp_all_cleaned_long_meta_rq %>%
 sprint_thesis_combined_freq_plot <- thesis_ppp_soil_long_meta_freq_plot %>% 
   bind_rows(sprint_ppp_soil_long_meta_freq_plot)
 
+saveRDS(sprint_thesis_combined_freq_plot,"./02_output/11_ppp_comparison/sprint_thesis_combined_freq_plot")
+write.xlsx(sprint_thesis_combined_freq_plot,"./02_output/11_ppp_comparison/sprint_thesis_combined_freq_plot.xlsx")
 
-ggplot(data = sprint_thesis_combined_freq_plot,
+
+comparison_boxplot_number_of_detections <- ggplot(data = sprint_thesis_combined_freq_plot,
        aes(x = dataset,y = n_detected, fill = farming_system))+
   geom_boxplot() +
-  ggtitle("Comparison Boxplot of Different Datasets and Farming Systems")+
+  stat_boxplot(geom ='errorbar',position = position_dodge(width = 0.9)) +
+  ggtitle("Comparison Boxplot of Different Datasets and Farming Systems
+          Number of Detected Substances")+
   stat_summary(
     fun = mean,
     geom = "crossbar",
     linetype = "dashed",
     width = 0.5,        # diamond shape
-    flatten = 0,
     color = "red",
     fill = "white"
   )+
@@ -89,3 +93,57 @@ ggplot(data = sprint_thesis_combined_freq_plot,
   coord_flip()+
   theme_minimal()+
   theme(legend.position = "bottom")
+
+comparison_boxplot_number_of_detections
+
+
+#get total concentrations of both datasets
+sprint_ppp_soil_long_meta_tot_conc_plot <- sprint_ppp_soil_long_meta %>% 
+  group_by(sample, farming_system) %>% 
+  summarise(total_concentrations = sum(concentrations_ng_g,na.rm = TRUE), .groups = "drop") %>% 
+  mutate(farming_system = str_replace(farming_system, "Conventional","2"),
+         farming_system = str_replace(farming_system, "Organic","3")) %>% 
+  mutate(dataset = substr(sample,1,2)) %>% 
+  filter(dataset %in% c("CZ","CH"))
+
+thesis_ppp_soil_long_meta_tot_conc_plot <- ppp_all_cleaned_long_meta_rq %>% 
+  group_by(sample,farming_system) %>% 
+  summarise(total_concentrations = sum(concentrations_ng_g,na.rm = TRUE), .groups = "drop") %>% 
+  mutate(dataset = "Thesis")
+
+sprint_thesis_combined_tot_conc_plot <- thesis_ppp_soil_long_meta_tot_conc_plot %>% 
+  bind_rows(sprint_ppp_soil_long_meta_tot_conc_plot)
+
+comparison_boxplot_tot_concentrations <- ggplot(data = sprint_thesis_combined_tot_conc_plot,
+                                                  aes(x = dataset,y = total_concentrations, fill = farming_system))+
+  geom_boxplot() +
+  stat_boxplot(geom ='errorbar',position = position_dodge(width = 0.9)) +
+  ggtitle("Comparison Boxplot of Different Datasets and Farming Systems
+          Total Concentration of Detected Substances")+
+  stat_summary(
+    fun = mean,
+    geom = "crossbar",
+    linetype = "dashed",
+    width = 0.5,        # diamond shape
+    color = "red",
+    fill = "white"
+  )+
+  scale_fill_manual(values = fs_colour_plus, 
+                    labels = c("Regenerative", "Conventional", "Organic"))+
+  scale_x_discrete(labels = c(
+    "Thesis" = "Thesis, Oilseed Rape",
+    "CZ" = "CZ, Oil Plants*",
+    "CH" = "CH, Orchards*"
+  )) +
+  scale_y_continuous(trans = "log10")+
+  labs(x = "Datasets",
+       y = "Total Concentrations [ng/g]",
+       fill = "Farming System")+
+  coord_flip()+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+
+comparison_boxplot_tot_concentrations
+
+
+
