@@ -11,6 +11,8 @@ library(ggplot2)
 library(ggttext)
 library(hrbrthemes)
 library(patchwork)
+library(flextable)
+library(officer)
 
 
 
@@ -403,3 +405,129 @@ ggsave(
 
 combined_plot
 
+
+#5.1 single ppps contribution to RQ#####
+#get list of the 20 most frequent PPPs
+ppp_freq_different_fields_t_ordered <- as.data.frame(ppp_freq_different_fields_t) %>% 
+  arrange(desc(freq_detected_plots)) %>% 
+  rownames_to_column(var = "ppp_compoound")
+
+ppp_top_20 <- ppp_freq_different_fields_t_ordered$ppp_compoound[1:22]
+ppp_top_20 <- ppp_top_20[-c(1,3)]
+
+ppp_soil_all_cleaned_long_meta_pnec_rq_top_20 <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
+  filter(ppp_compound %in% ppp_top_20)
+
+
+#generate overview table with properties of 20 most freq ppps
+ppp_top_20_overview <- ppp_soil_all_cleaned_long_meta_pnec_rq_top_20 %>% 
+  left_join(ppp_freq_different_fields_t_ordered,by = join_by(ppp_compound == ppp_compoound)) %>% 
+  rename("n_of_fields_det" = "detected.y") %>% 
+  arrange(desc(freq_detected_fields))
+
+#prepare data frame
+df_colnames <- c("Substance","pct","n_reg","n_conv","min_c","max_c","Reg.","Conv.","RQ_max","Type","Status")
+ppp_df_top20_overview <- data.frame(matrix(ncol = length(df_colnames), nrow = 0))
+colnames(ppp_df_top20_overview) <- df_colnames
+
+#loop to get table values
+for(i in ppp_top_20){
+  ppp_top_20_overview_selected <- ppp_top_20_overview %>% 
+    filter(ppp_compound == i)
+  
+  
+  substance <- i #store substance name
+  n <- ppp_top_20_overview_selected$n_of_fields_det[1] #store number of fields detected
+  percent <- round(ppp_top_20_overview_selected$freq_detected_fields[1],1) #store percentage of fields det
+  min_c <- round(min(ifelse(ppp_top_20_overview_selected$concentrations_ng_g>0,
+                      ppp_top_20_overview_selected$concentrations_ng_g,
+                      NA),na.rm = TRUE),2) #store min value
+  max_c <- round(max(ppp_top_20_overview_selected$concentrations_ng_g),2) #store max value
+  rq_max <- round(max(ppp_top_20_overview_selected$risk_quotient),2)
+  if(is.na(rq_max)){
+    rq_max <- "N.a."
+  }
+  
+  ppp_det_plots_fs <- ppp_top_20_overview_selected %>% 
+    group_by(farming_system) %>% 
+    summarise(n_plots_det_fs = sum(detected.x,na.rm = TRUE))
+  
+  n_plots_reg <- ppp_det_plots_fs$n_plots_det_fs[1]
+  n_plots_conv <- ppp_det_plots_fs$n_plots_det_fs[2]
+  #get median per farming system
+  ppp_selected_med <- ppp_top_20_overview_selected %>% 
+    group_by(farming_system) %>% 
+    summarise(median_per_system = median(ifelse(concentrations_ng_g>0,concentrations_ng_g,NA),na.rm =TRUE))
+  
+  med_reg <- round(ppp_selected_med$median_per_system[1],2)
+  if(is.na(med_reg)){
+    med_reg <- 0
+  }
+  med_conv <- round(ppp_selected_med$median_per_system[2],2)
+  if(is.na(med_conv)){
+    med_conv <- 0
+  }
+  
+  type <- ppp_top_20_overview_selected$Type[1] #store type
+  status <- ppp_top_20_overview_selected$`Status.under.Reg..(EC).No.1107/2009`[1] #store status
+  
+  #combine to dataframe
+  new_row <- data.frame(
+    Substance = substance,
+    pct = percent,
+    n_reg = n_plots_reg,
+    n_conv = n_plots_conv,
+    min_c = min_c,
+    max_c = max_c,
+    Reg. = med_reg,
+    Conv. = med_conv,
+    RQ_max = rq_max,
+    Type = type,
+    Status = status,
+    
+    stringsAsFactors = FALSE
+  )
+  
+  ppp_df_top20_overview <- rbind(ppp_df_top20_overview,new_row)
+
+
+}
+
+ppp_df_top20_overview <- ppp_df_top20_overview %>% 
+  arrange(desc(pct)) %>% 
+  rename("%" = "pct",
+         "min" = "min_c",
+         "max" = "max_c") %>% 
+  select(-"%")
+
+write.xlsx(ppp_df_top20_overview,file.path(output_dir,"ppp_df_top_20_overview.xlsx"))
+
+header_df <- data.frame(
+  col_keys = names(ppp_df_top20_overview),
+  group    = c(
+    "",                   # Substance name
+    #rep("Field Detections", 2),            # n and %
+    rep("Plot Detections per FS",2),
+    rep("Concentration (ng/g)", 2),# min and max
+    rep("Median per system (ng/g)", 2),   # Reg. and Conv.
+    "",               # RQ_max
+    rep("Type & Status", 2)           # Type, Status
+  ),
+  col_labels = c("Substance", "Reg.","Conv.", "min", "max", "Reg.", "Conv.", "RQ max", "Type", "Status"),
+  stringsAsFactors = FALSE
+)
+
+styled_ppp_table <- ppp_df_top20_overview %>% 
+  flextable() %>% 
+  set_header_df(mapping = header_df, key = "col_keys") %>%
+  merge_h(part = "header") %>%        # Merge group cells horizontally
+  align(align = "center", part = "header") %>%
+  align(align = "center", part = "body") %>%
+  # Draw lines between the two header rows
+  # Add a line between the top header row and the second header row
+  # line between the top and second header row
+  hline(i = 1, part = "header", border = fp_border(color = "black", width = 1)) %>%
+  # thicker line at the bottom of the header
+  hline_bottom(part = "header", border = fp_border(color = "black", width = 2)) %>%
+  autofit()
+styled_ppp_table
