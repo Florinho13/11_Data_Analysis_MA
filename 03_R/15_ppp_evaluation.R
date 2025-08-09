@@ -332,6 +332,8 @@ ppp_soil_all_cleaned_long_meta_pnec_rq <- ppp_soil_all_cleaned_long_meta_pnec %>
   mutate(risk_quotient = concentrations_ng_g/pnec_soil_ng_g)
 str(ppp_soil_all_cleaned_long_meta_pnec_rq)
 
+write.xlsx(ppp_soil_all_cleaned_long_meta_pnec_rq,file.path(output_dir,"ppp_all_cleaned_long_meta_rq.xlsx"))
+saveRDS(ppp_soil_all_cleaned_long_meta_pnec_rq,"./02_output/11_ppp_comparison/ppp_all_cleaned_long_meta_rq.rds")
 
 ppp_soil_all_plots_cumulative_risk <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
   group_by(sample,Type) %>% 

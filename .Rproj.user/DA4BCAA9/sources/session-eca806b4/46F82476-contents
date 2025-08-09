@@ -6,7 +6,7 @@ today <- format(Sys.Date(), "%Y_%m_%d")
 
 #01 farm colours
 fs_colour <- setNames(c("#66c2a5","#fc8d62"),c(1,2))
-
+fs_colour_plus <- setNames(c("#66c2a5","#fc8d62","#3E9BFEFF"),c(1,2,3))
 
 #1. function to map colours####
 map_colours <- function(variables_to_map){
