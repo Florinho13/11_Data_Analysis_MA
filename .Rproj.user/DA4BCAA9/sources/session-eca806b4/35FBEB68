@@ -3,7 +3,7 @@
     "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/11_soil_health_index.R",
     "project_path": "03_R/11_soil_health_index.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "768968674",
     "contents": "",
     "dirty": false,
     "created": 1754285124757.0,
@@ -13,15 +13,16 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "23,22",
-        "scrollLine": "0"
+        "cursorPosition": "240,0",
+        "scrollLine": "201",
+        "docOutlineVisible": "1"
     },
     "folds": "",
-    "lastKnownWriteTime": 1754337253,
+    "lastKnownWriteTime": 1755268693,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1754337253150,
+    "last_content_update": 1755268693711,
     "read_only": false,
     "read_only_alternatives": []
 }
