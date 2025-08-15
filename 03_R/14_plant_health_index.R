@@ -35,13 +35,18 @@ plant_data_combined_incl_yield_clean_rp <- plant_data_combined_incl_yield_clean_
 #score plant parameters
 scored_plant_data <- score_phi(plant_data_combined_incl_yield_clean_rp)
 
+phi_total <- scored_plant_data %>% 
+  mutate(phi_total = rowSums(across(5:9), na.rm = TRUE)) %>% 
+  mutate(phi_total_no_yield = rowSums(across(5:8), na.rm = TRUE))
+
+
 #calculate mean per field
-phi_mean <- scored_plant_data %>% 
+phi_mean <- phi_total %>% 
   group_by(location,farming_system) %>% 
   summarise(across(
     .cols = c("Chlorophyll (SPAD)","Plant height (cm)",
               "Root health score","Specific Leaf Area (g/cm2)",
-              "Yield (dt/ha)"),
+              "Yield (dt/ha)","phi_total","phi_total_no_yield"),
     .fns = ~mean(.x, na.rm = TRUE),
     .names = "{.col}"
   ), .groups = "drop")
@@ -49,9 +54,7 @@ phi_mean <- scored_plant_data %>%
 phi_mean_clean <- phi_mean %>% 
   mutate("Field ID" = paste(location,farming_system,sep = "_"),.before = 1)
 
-phi_mean_total <- phi_mean_clean %>% 
-  mutate(phi_total = rowSums(across(4:8), na.rm = TRUE)) %>% 
-  mutate(phi_total_without_yield = rowSums(across(4:7),na.rm = TRUE))
+
 
 write.xlsx(phi_mean_total,"./02_output/09_plant_health/phi_mean_total.xlsx")
 
@@ -65,18 +68,32 @@ phi_cleeveland <- phi_mean_clean_prep %>%
   select(-`Field ID`) %>% 
   pivot_wider(names_from = farming_system, values_from = `PHI score`)
 phi_cleeveland <- phi_cleeveland %>% 
-  rename("Regenerative" = 3, "Conventional" = 4)
+  rename("Regenerative" = 5, "Conventional" = 6) %>% 
+  mutate(across(5:6,as.numeric))
 
 
 #4. generat cleeveland dot plot####
 location_labels <- c(
-  "1" = "Freudwil",
-  "2" = "Niederhasli",
-  "3" = "Läufelfingen",
-  "4" = "Heimenhausen",
-  "5" = "Heimiswil",
-  "6" = "Ueberstorf"
+  "1" = "Freudwil (R = 2.61)",
+  "2" = "Niederhasli (R = 3.94, C = 2.59)",
+  "3" = "Läufelfingen (R = 3.99, C = 3.75)",
+  "4" = "Heimenhaus. (R = 3.18, C = 3.50)",
+  "5" = "Heimiswil (R = 2.52, C = 3.41)",
+  "6" = "Ueberstorf (R = 1.59, C = 3.30)"
 )
+
+# 1) One label per location
+loc_labels <- phi_cleeveland %>%
+  group_by(location) %>%
+  summarise(
+    r_better = sum(Regenerative > Conventional, na.rm = TRUE),
+    c_better = sum(Conventional > Regenerative, na.rm = TRUE),
+    n_vars   = sum(!is.na(Regenerative) & !is.na(Conventional)),
+    .groups = "drop"
+  ) %>%
+  mutate(label = sprintf("R vs. C: %d-%d", r_better, c_better)) %>% 
+  mutate(label = if_else(label=="Reg vs. Conv: 0-0","no comp.", label))
+
 
 phi_plot <- ggplot(phi_cleeveland) +
   geom_segment(aes(x = Regenerative, xend = Conventional,
