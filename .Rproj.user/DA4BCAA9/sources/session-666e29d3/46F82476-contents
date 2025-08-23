@@ -147,7 +147,7 @@ thesis_plot <- function(df,column_sample_name,column_measurement_values,fs_mean_
       plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
       axis.title.x = element_text(size=13),
       axis.title.y = element_text(size=13),
-      axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+      axis.text.x = element_markdown(size = 11,angle = 45,hjust = 1),
       axis.text.y = element_text(size =11),
       strip.text = element_text(size = 13),
       legend.text = element_text(size = 11),
@@ -280,4 +280,52 @@ cor_against_all <- function(target,dat) {
   ) %>%
     mutate(p_adj_BH = p.adjust(p_value, method = "BH")) %>%
     arrange(desc(abs(spearman_r)))
+}
+
+#13. lighten ####
+lighten <- function(col, amount = 0.85, to = "#FFFFFF") {
+  x <- grDevices::col2rgb(col)/255
+  y <- grDevices::col2rgb(to)/255
+  z <- (1-amount)*x + amount*y
+  grDevices::rgb(z[1], z[2], z[3])
+}
+
+regen_col <- lighten(fs_colour[1],0.85)
+conv_col <- lighten(fs_colour[2],0.85)
+
+
+#14. thesis table ####
+create_thesis_table_ft <- function(input_df){
+  input_df %>% 
+  flextable() %>% 
+  autofit() %>% 
+  # ---- Header formatting ----
+  bold(part = "header") %>%
+  bg(part = "header", bg = "#DDDDDD") %>%
+  
+  #farm_id
+  bold(
+    i = ~ str_detect(`Farm ID`, "_1$"),   # condition: ends with "_1"
+    j = "Farm ID",                        # only apply to Farm ID column
+    bold = TRUE
+  ) %>%
+  
+  border(
+    j = "Farm ID", 
+    border.right = fp_border(color = "black", width = 1), 
+    part = "all"   # applies to header + body
+  ) %>% 
+  bg(j = "Farm ID", bg = "#F2F2F2", part = "all") %>%
+  
+  bg(
+    i = ~ str_detect(`Farm ID`, "_1$"),   # condition
+    bg = regen_col,
+    #j = "Farm ID"# all columns will be colored
+  ) %>% 
+  bg(
+    i = ~ str_detect(`Farm ID`, "_2$"),   # condition
+    bg = conv_col,                     # all columns will be colored
+  ) %>% 
+  #export preparation
+  set_table_properties(width = 1, layout = "autofit")
 }

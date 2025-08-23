@@ -233,6 +233,13 @@ element_colour <- map_colours(cec_data_rp$variable)
 cec_data_rp$color <- element_colour[as.character(cec_data_rp$variable)]
 
 #plot CEC
+#prepare labels
+samples <- unique(substr(soil_combined_rp_overview_cn$sample_name,1,3))
+samples <- sort(samples)
+labels <- ifelse(sub("^[0-9]_([0-9]).*", "\\1", samples) == "1",
+                 paste0("<b>", samples, "</b>"),
+                 samples)
+
 cec_plot <- ggplot(cec_data_rp_mean,aes(x=substr(sample_name,1,3),y = mean_measurement,
                                 fill = factor(variable)))+
   geom_bar(stat = "identity",position = "stack")+
@@ -240,11 +247,12 @@ cec_plot <- ggplot(cec_data_rp_mean,aes(x=substr(sample_name,1,3),y = mean_measu
   ggtitle("Mean CEC per Field")+
   labs(x="Field ID",y="mmol/kg",fill="CEC Elements \n(mmol/kg)")+
   scale_fill_manual(values = element_colour)+
+  scale_x_discrete(labels = labels) +
   theme(
     plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
     axis.title.x = element_text(size=13),
     axis.title.y = element_text(size=13),
-    axis.text.x = element_text(size = 11),
+    axis.text.x = element_markdown(size = 11),
     axis.text.y = element_text(size =11)
     #legend.position = "bottom"
   )
@@ -285,6 +293,7 @@ cns_plot <- ggplot(cns_data_rp,aes(x=substr(sample_name,1,3),y=measurement))+
     linewidth = 0.8
   ) +
   scale_color_manual(values = fs_colour,labels = c("Regenerative","Conventional"))+
+  scale_x_discrete(labels = labels) +
   ggtitle("CNS measurements per field")+
   labs(x="Field ID",y="",color ="Farming System Mean:")+
   theme_minimal()+
@@ -292,7 +301,7 @@ cns_plot <- ggplot(cns_data_rp,aes(x=substr(sample_name,1,3),y=measurement))+
     plot.title = element_text(size = 15,face = "bold",hjust = 0.5),
     axis.title.x = element_text(size=13),
     axis.title.y = element_text(size=13),
-    axis.text.x = element_text(size = 11,angle = 45,hjust = 1),
+    axis.text.x = element_markdown(size = 11,angle = 45,hjust = 1),
     axis.text.y = element_text(size =11),
     strip.text = element_text(size = 13),
     legend.text = element_text(size = 11),
@@ -321,6 +330,7 @@ write.xlsx(mean_lines_pH,"./02_output/05_pH/pH_fs_means.xlsx")
   
 
 ph_plot <- thesis_plot(ph_data_rp,ph_data_rp$sample_name,ph_data_rp$measurement,mean_lines_ph)+
+  scale_x_discrete(labels = labels) +
   ggtitle("pH measurements per field")+
   labs(y="pH value")
 
@@ -347,6 +357,7 @@ write.xlsx(mean_lines,"./02_output/06_biological/biological_fs_means.xlsx")
 
 biological_plot <- thesis_plot(biological_rp_overview,biological_rp_overview$sample_name,
                                biological_rp_overview$measurement,mean_lines)+
+  scale_x_discrete(labels = labels) +
   ggtitle("Microbial Biomass per field")+
   labs(y="mg/kg")+
   facet_wrap(vars(variable),scales = "free_y")
@@ -373,6 +384,7 @@ write.xlsx(mean_lines,"./02_output/07_bulk_density/bulk_density_fs_means.xlsx")
 #plot bulk density
 bulk_density_plot <- thesis_plot(bulk_density_data_rp,bulk_density_data_rp$sample_name,
                                  bulk_density_data_rp$measurement,mean_lines)+
+  scale_x_discrete(labels = labels) +
   ggtitle("Bulk density per field")+
   labs(y="g/cm3")
 
