@@ -98,12 +98,18 @@ combined_data_plant <- plant_health_param %>%
   left_join(plant_health[,c(1,10,11)],by="sample_name")
 
 combined_plant_soil <- combined_data_soil %>% 
-  left_join(combined_data_plant,by = "sample_name")
+  left_join(combined_data_plant,by = "sample_name") %>% 
+  mutate(field_id = substr(sample_name,1,3),.after = 1)
+
+long_comb_plant_soil <- to_long(combined_plant_soil)
+
+combined_plant_soil_ra_plot <- combined_plant_soil %>% 
+  left_join(regenerative_score_yr1_average,by = join_by(field_id=="participant"))
 
 
 combined_plant_soil_mean <- combined_plant_soil %>% 
   group_by(substr(sample_name,1,3)) %>% 
-  summarise(across(2:30,~mean(.x,na.rm = TRUE))) %>% 
+  summarise(across(3:31,~mean(.x,na.rm = TRUE))) %>% 
   rename("field_id" = "substr(sample_name, 1, 3)")
 
 combined_plant_soil_ra <- combined_plant_soil_mean %>% 
@@ -111,6 +117,7 @@ combined_plant_soil_ra <- combined_plant_soil_mean %>%
 
 write.xlsx(combined_plant_soil_ra,file.path(output_dir_reg_score,"combined_plant_soil_ra.xlsx"))
 
+write.xlsx(combined_plant_soil_ra_plot,file.path(output_dir_reg_score,"combined_plant_soil_ra_plot.xlsx"))
 
 #calculate spearman
 # ---- columns to exclude from correlation as predictors ----
@@ -161,9 +168,40 @@ ggplot(plot_dat, aes(x = variable, y = spearman_r, fill=sig_raw)) +
   labs(x = NULL, y = "Spearman's rho", title = "Spearman correlations with RA metrics") +
   theme_minimal(base_size = 12)
 
+
+ggplot(data=combined_plant_soil_ra_plot,aes(x=RA_average,y=`C%_normal`))+
+  geom_point()
+
+
+var <- "shi_total"   # choose any outcome
+dfp <- combined_plant_soil_ra %>%
+  select(RA_average, !!sym(var)) %>%
+  na.omit() %>%
+  mutate(RA_rank  = rank(RA_average, ties.method = "average"),
+         var_rank = rank(.data[[var]], ties.method = "average"))
+
+ggplot(dfp, aes(RA_rank, var_rank)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "rank(RA_score)", y = paste0("rank(", var, ")"),
+       title = paste("Rank–rank plot (Spearman) for", var)) +
+  theme_minimal(base_size = 12)
 # ---- (optional) correlation matrix of only RA variables vs predictors ----
 # This is a compact matrix view (Spearman), useful for heatmaps
 mat_vars <- c(score_cols, predictor_cols)
 cmat <- cor(combined_plant_soil_ra[, mat_vars], use = "pairwise.complete.obs", method = "spearman")
 cmat_RA <- cmat[score_cols, predictor_cols, drop = FALSE]
 cmat_RA[ , 1:min(10, ncol(cmat_RA))]  # view first 10 columns
+
+
+#get basic statistics for whole dataset
+options(scipen = 999)
+overview_stat_plant_soil <- long_comb_plant_soil %>% 
+  group_by(variable,system) %>% 
+  summarise(med = median(value,na.rm = TRUE),
+            average = mean(value,na.rm = TRUE),
+            minimum = min(value,na.rm = TRUE),
+            maximum = max(value,na.rm = TRUE),
+            sd = sd(value,na.rm = TRUE))
+
+write.xlsx(overview_stat_plant_soil,file.path(output_dir_reg_score,"overview_stat_all_variables.xlsx"))

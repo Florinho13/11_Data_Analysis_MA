@@ -18,6 +18,7 @@ library(stringr)
 library(lme4)
 library(lmerTest)
 library(lme)
+library(janitor)
 
 
 #load project functions
@@ -140,6 +141,18 @@ fit_one <- function(long_df, var){
     Wp <- wil$p.value
   }
   
+  # --- Shapiro-Wilk normality test ---
+  shap <- tryCatch(
+    shapiro.test(dat$value),
+    error = function(e) NULL
+  )
+  if (is.null(shap)) {
+    shap_W <- NA_real_; shap_p <- NA_real_
+  } else {
+    shap_W <- shap$statistic
+    shap_p <- shap$p.value
+  }
+  
   tibble::tibble(
     variable = var,
     n_obs = n_obs,
@@ -150,7 +163,9 @@ fit_one <- function(long_df, var){
     t = tval,
     p_val = pvl,                          # <— renamed
     wilcox_W = Wstat,            # Wilcoxon W statistic
-    wilcox_p = Wp,  
+    wilcox_p = Wp,
+    shap_w = shap_W,
+    shap_p = shap_p,
     mean_regen = mr,
     mean_conv  = mc,
     mean_diff  = mr - mc
@@ -187,6 +202,9 @@ phys_res <- fit_all_vars(soil_physical_param, "physical")
 plant_res <- fit_all_vars(plant_health_param, "plant")
 
 all_res <- bind_rows(bio_res, chem_res, phys_res)
+
+phi_res <- fit_all_vars(plant_health,"phi")
+shi_res <- fit_all_vars(soil_health,"shi")
 
 write.csv(all_res,"./02_output/12_statistical_tests/mixed_model_tests.csv")
 write.csv(plant_res,"./02_output/12_statistical_tests/mixed_model_plant_tests.csv")
