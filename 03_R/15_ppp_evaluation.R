@@ -133,7 +133,8 @@ ppp_freq_overview_t <- ppp_freq_overview_t %>%
 
 
 
-write.xlsx(ppp_freq_overview_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_plots.xlsx"))
+write.xlsx(ppp_freq_overview_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_plots.xlsx"),
+           rowNames = TRUE)
 
  
 #02.2 frequency analysis per field #####
@@ -198,7 +199,7 @@ ppp_freq_different_fields_t <- ppp_freq_different_fields_t %>%
   mutate(freq_detected_fields = freq_detected_fields)
 
 
-write.xlsx(ppp_freq_different_fields_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_fields.xlsx"))
+write.xlsx(ppp_freq_different_fields_t,file.path(output_dir,"01_ppp_frequency/ppp_freq_overview_fields.xlsx"),rowNames = TRUE)
 
 # ppp_names <- sort(colnames(ppp_soil_all_cleaned))
 # write.csv(ppp_names,file.path(output_dir,"01_ppp_frequency/ppp_names.csv"))
@@ -347,13 +348,28 @@ total_risk <- ppp_soil_all_cleaned_long_meta_pnec_rq %>%
   summarise(total_risk = sum(risk_quotient, na.rm = TRUE)) %>% 
   mutate(total_risk = round(total_risk,2))
 
+#filter out chlorpyrifos#######
+ppp_soil_all_plots_cumulative_risk_no_chlor <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
+  filter(ppp_compound != "Chlorpyrifos") %>% 
+  group_by(sample,Type) %>% 
+  summarise(rq_cumulative = sum(risk_quotient,na.rm = TRUE),.groups = "drop") %>% 
+  group_by(Type) %>% 
+  filter(sum(rq_cumulative) > 0) %>% 
+  ungroup() 
+
+total_risk_no_chlor <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
+  filter(ppp_compound != "Chlorpyrifos") %>% 
+  group_by(sample) %>% 
+  summarise(total_risk = sum(risk_quotient, na.rm = TRUE)) %>% 
+  mutate(total_risk = round(total_risk,2))
+######
 write_rds(total_risk,file = "01_input/ppp_total_risk.rds")
 
-cumulative_risk_plot <- ggplot(ppp_soil_all_plots_cumulative_risk,
+cumulative_risk_plot_no_chlor <- ggplot(ppp_soil_all_plots_cumulative_risk_no_chlor,
                                aes(x = sample, y = rq_cumulative, fill = Type))+
   geom_bar(stat = "identity",
            color = "black") +
-  geom_text(data = total_risk,
+  geom_text(data = total_risk_no_chlor,
             aes(x = sample, y = total_risk, label = total_risk),
             inherit.aes = FALSE,
             vjust = 0, hjust = -0.2,
@@ -378,7 +394,9 @@ cumulative_risk_plot <- ggplot(ppp_soil_all_plots_cumulative_risk,
 
 
 cumulative_risk_plot
-
+ggsave(plot = cumulative_risk_plot,file.path(output_dir,"cumulative_risk_no_chlorpyrifos.png"),
+       width = 19, height = 8,
+       units = "cm")
 #4.1 combined ppp plot #####
 
 combined_plot <- number_of_compounds_plot +  
@@ -415,7 +433,7 @@ ppp_freq_different_fields_t_ordered <- as.data.frame(ppp_freq_different_fields_t
   rownames_to_column(var = "ppp_compoound")
 
 ppp_top_20 <- ppp_freq_different_fields_t_ordered$ppp_compoound[1:22]
-ppp_top_20 <- ppp_top_20[-c(1,3)]
+ppp_top_20 <- ppp_top_20[-c(1,4)]
 
 ppp_soil_all_cleaned_long_meta_pnec_rq_top_20 <- ppp_soil_all_cleaned_long_meta_pnec_rq %>% 
   filter(ppp_compound %in% ppp_top_20)
@@ -504,8 +522,14 @@ ppp_df_top20_overview <- ppp_df_top20_overview %>%
 
 write.xlsx(ppp_df_top20_overview,file.path(output_dir,"ppp_df_top_20_overview.xlsx"))
 
+ppp_df_top20_overview_ready <- ppp_df_top20_overview %>% 
+  mutate(Substance = str_replace_all(Substance,"_"," "),
+         Substance = str_replace(Substance, "Napropamide M", "Napropa. M"),
+         Substance = str_replace(Substance, "Hexachlorobenzene", "HCB"),
+         Status = str_replace(Status, "Approved", "Auth."))
+
 header_df <- data.frame(
-  col_keys = names(ppp_df_top20_overview),
+  col_keys = names(ppp_df_top20_overview_ready),
   group    = c(
     "",                   # Substance name
     #rep("Field Detections", 2),            # n and %
@@ -519,7 +543,7 @@ header_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-styled_ppp_table <- ppp_df_top20_overview %>% 
+styled_ppp_table <- ppp_df_top20_overview_ready %>% 
   flextable() %>% 
   set_header_df(mapping = header_df, key = "col_keys") %>%
   merge_h(part = "header") %>%        # Merge group cells horizontally
@@ -531,5 +555,17 @@ styled_ppp_table <- ppp_df_top20_overview %>%
   hline(i = 1, part = "header", border = fp_border(color = "black", width = 1)) %>%
   # thicker line at the bottom of the header
   hline_bottom(part = "header", border = fp_border(color = "black", width = 2)) %>%
-  autofit()
+  autofit() %>% 
+  set_table_properties(width = 1, layout = "autofit")
 styled_ppp_table
+
+doc <- read_docx() %>% 
+  body_add_par("top 20 ppps", style = "heading 1") %>% 
+  body_add_flextable(
+    styled_ppp_table %>% 
+      autofit() %>% 
+      set_table_properties(width = 1, layout = "autofit")   # scales table to page width
+  ) %>%
+  body_add_par("", style = "Normal")
+
+print(doc,target = "./02_output/14_thesis_tables/ppp_top_20_substances.docx")

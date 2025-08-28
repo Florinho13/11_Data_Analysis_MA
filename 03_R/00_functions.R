@@ -1,5 +1,6 @@
 #contains all functions used in MA data analysis
 library(viridis)
+library(ggtext)
 
 # 00create date for storing####
 today <- format(Sys.Date(), "%Y_%m_%d")
@@ -295,6 +296,8 @@ conv_col <- lighten(fs_colour[2],0.85)
 
 
 #14. thesis table ####
+
+
 create_thesis_table_ft <- function(input_df){
   input_df %>% 
   flextable() %>% 

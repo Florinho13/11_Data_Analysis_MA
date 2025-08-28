@@ -236,6 +236,24 @@ soil_ppp_summary_overview <- soil_ppp_summary_long %>%
             minimal_value = min(value, na.rm = TRUE),
             maximal_value = max(value,na.rm = TRUE))
 
+
+soil_ppp_summary_type <- soil_risk %>% 
+  group_by(sample, Type) %>% 
+  summarise(cumulative_RQ = sum(risk_quotient,na.rm = TRUE),
+            total_conc = sum(concentrations_ng_g,na.rm = TRUE),
+            number_of_subst = sum(detected, na.rm = TRUE),
+            .groups = "drop") %>%
+  rename("sample_name" = "sample")
+
+
+soil_ppp_summary_overview_type <- soil_ppp_summary_type %>% 
+  group_by(substr(sample_name,3,3),Type) %>% 
+  summarise(sum_per_type = sum(cumulative_RQ))
+
+ppp_accumulated_risk_per_subst <- soil_risk %>% 
+  group_by(ppp_compound) %>% 
+  summarise(sum(risk_quotient))
+
 ppp_res <- fit_all_vars(soil_ppp_summary,"Pesticide")
 
 # --- 4) Quick glance: strongest effects (raw p) ---
