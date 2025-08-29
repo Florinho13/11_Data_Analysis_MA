@@ -207,7 +207,9 @@ plant_res <- fit_all_vars(plant_health_param, "plant")
 all_res <- bind_rows(bio_res, chem_res, phys_res)
 
 phi_res <- fit_all_vars(plant_health,"phi")
-shi_res <- fit_all_vars(soil_health,"shi")
+shi_res <- fit_all_vars(scored_soil_data_rq_total[,-c(2:4)],"shi")
+
+
 
 write.csv(all_res,"./02_output/12_statistical_tests/mixed_model_tests.csv")
 write.csv(plant_res,"./02_output/12_statistical_tests/mixed_model_plant_tests.csv")
