@@ -124,7 +124,7 @@ write.xlsx(combined_plant_soil_ra,file.path(output_dir_reg_score,"combined_plant
 
 write.xlsx(combined_plant_soil_ra_plot,file.path(output_dir_reg_score,"combined_plant_soil_ra_plot.xlsx"))
 
-#calculate spearman
+#2. calculate spearman#####
 # ---- columns to exclude from correlation as predictors ----
 id_cols    <- c("field_id")          # add more IDs if you have them
 score_cols <- c("RA_score", "RA_average")
@@ -154,25 +154,41 @@ write.csv(cor_RA_score,   "spearman_RA_score.csv",   row.names = FALSE)
 write.csv(cor_RA_average, "spearman_RA_average.csv", row.names = FALSE)
 write.csv(cor_long,       "spearman_all_results.csv", row.names = FALSE)
 
-# ---- (optional) quick comparison plot: top |rho| per target ----
+
+#quick comparison plot: top |rho| per target ----
 top_k <- 10
-plot_dat <- cor_long %>%
+cor_long_clean <- clean_plant_names(cor_long,variable)
+cor_long_clean <- clean_soil_names(cor_long_clean,variable)
+
+plot_dat <- cor_long_clean %>%
   mutate(sig_raw = p_value < 0.05) %>% 
   group_by(target) %>%
   slice_max(order_by = abs(spearman_r), n = top_k, with_ties = FALSE) %>%
   ungroup() %>%
   mutate(variable = str_trunc(variable, 30)) %>%
   arrange(target, spearman_r) %>%
-  mutate(variable = factor(variable, levels = unique(variable)))
+  mutate(variable = factor(variable, levels = unique(variable))) %>% 
+  mutate(target = if_else(target == "RA_average",
+                          "4 Year Average RA score",
+                          "OSR RA Score"))
+  
 
-ggplot(plot_dat, aes(x = variable, y = spearman_r, fill=sig_raw)) +
+
+spearman_overview <- ggplot(plot_dat, aes(x = variable, y = spearman_r, fill=sig_raw)) +
   geom_col() +
   facet_wrap(~ target, scales = "free_y") +
+  scale_fill_manual(values = viridis(2))+
   geom_hline(yintercept = 0) +
   coord_flip() +
-  labs(x = NULL, y = "Spearman's rho", title = "Spearman correlations with RA metrics") +
-  theme_minimal(base_size = 12)
+  labs(x = NULL, y = "Spearman's rho", title = "Strongest correlations (Spearman’s rho)\nbetween RA scores and investigated soil and plant parameters",
+       fill = "Significance") +
+  theme_minimal(base_size = 12)+
+  theme(
+    legend.position = "bottom"
+  )
 
+ggsave(plot = spearman_overview,filename = file.path(output_dir_reg_score,"spearman_correlation_reg_score.png"),
+       width = 18, height = 16, units = "cm")
 
 ggplot(data=combined_plant_soil_ra_plot,aes(x=RA_average,y=`C%_normal`))+
   geom_point()
