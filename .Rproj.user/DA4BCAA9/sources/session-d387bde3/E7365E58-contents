@@ -386,3 +386,18 @@ doc <- read_docx() %>%
   body_add_par("", style = "Normal")
 
 print(doc,target = "./02_output/14_thesis_tables/thesis_table_soil_chem.docx")
+
+
+#4. statistical tests#####
+#number of compounds
+kw_between_datasets <- df %>%
+  group_by(system, metric) %>%
+  summarise(
+    kw = list(kruskal.test(value ~ dataset)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    stat  = map_dbl(kw, ~ .x$statistic),
+    p_val = map_dbl(kw, ~ .x$p.value)
+  ) %>%
+  select(system, metric, stat, p_val)

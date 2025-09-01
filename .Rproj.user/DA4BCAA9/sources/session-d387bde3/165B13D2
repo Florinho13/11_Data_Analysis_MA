@@ -3,9 +3,9 @@
     "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/18_relation_regenerative_score_indices_variables.R",
     "project_path": "03_R/18_relation_regenerative_score_indices_variables.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "3873147549",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1755375761730.0,
     "source_on_save": false,
     "relative_order": 9,
@@ -17,11 +17,11 @@
         "scrollLine": "171"
     },
     "folds": "",
-    "lastKnownWriteTime": 1756715049,
+    "lastKnownWriteTime": 1756733823,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1756723527579,
+    "last_content_update": 1756733823958,
     "read_only": false,
     "read_only_alternatives": []
 }

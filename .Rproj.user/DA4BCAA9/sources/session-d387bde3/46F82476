@@ -3,9 +3,9 @@
     "path": "C:/Users/fcchr/OneDrive/Universitaet/MASTER/MasterThesis/11_Data_Analysis_MA/03_R/00_functions.R",
     "project_path": "03_R/00_functions.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "2656734411",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1737725025127.0,
     "source_on_save": false,
     "relative_order": 2,
@@ -17,11 +17,11 @@
         "scrollLine": "101"
     },
     "folds": "",
-    "lastKnownWriteTime": 1756393340,
+    "lastKnownWriteTime": 1756733823,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1756722746013,
+    "last_content_update": 1756733823839,
     "read_only": false,
     "read_only_alternatives": []
 }

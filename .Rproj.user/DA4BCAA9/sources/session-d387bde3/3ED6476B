@@ -1,0 +1,28 @@
+{
+    "id": "3ED6476B",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1756742870657.0,
+    "source_on_save": false,
+    "relative_order": 23,
+    "properties": {
+        "id": "f461c41678d14321a3e9320ac3412bb2",
+        "name": "pw_all",
+        "title": "pw_all",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2039762333528,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1756742870657,
+    "read_only": false,
+    "read_only_alternatives": []
+}

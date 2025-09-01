@@ -121,7 +121,14 @@ clean_plant_names <- function(df,col_cont_par_name){
   parameter_names_clean <- list("chlorophyll_average" = "Chlorophyll (SPAD)",
                                 "height_cm" = "Plant height (cm)",
                                 "root_health_score" = "Root health score",
-                                "sla" = "Specific Leaf Area (g/cm2)" )
+                                "sla" = "Specific Leaf Area (g/cm2)" ,
+                                "Chlorophyll..SPAD." = "Chlorophyll (SPAD)",
+                                "Specific.Leaf.Area..g.cm2." = "Specific Leaf Area (g/cm2)" ,
+                                "shi_total" = "SHI",
+                                "Root.health.score" = "Root health score",
+                                "leaf_area_cm2" = "Leaf Area (cm2)",
+                                "leaf_weight_g" = "Leaf Weight (g)",
+                                "Yield..dt.ha." = "Yield (dt/ha)")
   
   df_clean_names <- df %>% 
     mutate({{ col_cont_par_name }} := recode({{ col_cont_par_name }}, !!!parameter_names_clean))
