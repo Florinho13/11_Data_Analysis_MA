@@ -7,17 +7,16 @@
 library(tidyverse)
 library(openxlsx)
 library(ggplot2)
-library(ggttext)
+library(ggtext)
 library(broom.mixed)
 library(patchwork)
 library(flextable)
 library(officer)
 library(broom)
-library(purr)
+library(purrr)
 library(stringr)
 library(lme4)
 library(lmerTest)
-library(lme)
 library(janitor)
 
 
@@ -206,7 +205,7 @@ plant_res <- fit_all_vars(plant_health_param, "plant")
 
 all_res <- bind_rows(bio_res, chem_res, phys_res)
 
-phi_res <- fit_all_vars(plant_health,"phi")
+phi_res <- fit_all_vars(phi_total[,-c(2:4)],"phi")
 shi_res <- fit_all_vars(scored_soil_data_rq_total[,-c(2:4)],"shi")
 
 

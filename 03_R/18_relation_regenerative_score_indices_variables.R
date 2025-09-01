@@ -55,6 +55,8 @@ regenerative_score_yr1_conv <- regenerative_score_yr1 %>%
   filter(substr(participant,3,3)== 2)
 
 additional_row_2_2[,12] <- round(mean(regenerative_score_yr1_conv$RA_score),0)
+#get score of field 2_1 as approximation for field 2_2
+additional_row_2_2[,12] <- 1
 
 regenerative_score_yr1_ready <- regenerative_score_yr1 %>% 
   bind_rows(additional_row_2_2) %>% 
@@ -73,6 +75,9 @@ additional_row_2_2 <- data.frame("2_2",NA)
 colnames(additional_row_2_2) <- c_names
 
 additional_row_2_2[,2] <- mean(regenerative_score_mean_conv$RA_average)
+#get the score of field 2_1 for field 2_2
+additional_row_2_2[,2] <- 2.25
+
 
 regenerative_score_mean_ready <- regenerative_score_mean %>% 
   bind_rows(additional_row_2_2)
@@ -208,4 +213,89 @@ overview_stat_plant_soil <- long_comb_plant_soil %>%
             maximum = max(value,na.rm = TRUE),
             sd = sd(value,na.rm = TRUE))
 
+
 write.xlsx(overview_stat_plant_soil,file.path(output_dir_reg_score,"overview_stat_all_variables.xlsx"))
+
+
+
+#5. RA score distribution plots######
+ra_distr_plot <-  read.xlsx(file.path(output_dir_reg_score,"total_ra_scores_per_field_certif.xlsx"))
+
+
+df_plot_RA_score <- ra_distr_plot %>%
+  group_by(RA_score) %>%
+  arrange(participant, .by_group = TRUE) %>%
+  mutate(
+    n_at_x = n(),
+    y = if_else(
+      n_at_x == 1,
+      1,
+      1 + (row_number() - (n_at_x + 1) / 2) * 0.08  # tweak 0.08 for spacing
+    )
+  ) %>%
+  ungroup()
+
+RA_OSR <- ggplot(df_plot_RA_score, aes(x = RA_score, y = y, colour = factor(certif))) +
+  geom_point(size = 3) +
+  scale_color_manual(values = fs_colour_plus,
+                     labels = c("Reg. Conv.","Conv.", "Org. Conv."))+
+  scale_x_continuous(breaks = 0:8, limits = c(-0.5, 8.5)) +
+  coord_cartesian(ylim = c(0.6, 1.4)) +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    legend.position = "bottom"
+  ) +
+  labs(x = "RA Score (0–8)", title = "RA Scores per Field OSR Cultivation Period",
+       colour = "Management System")
+
+df_plot_RA_average <- ra_distr_plot %>%
+  group_by(RA_average) %>%
+  arrange(participant, .by_group = TRUE) %>%
+  mutate(
+    n_at_x = n(),
+    y = if_else(
+      n_at_x == 1,
+      1,
+      1 + (row_number() - (n_at_x + 1) / 2) * 0.08  # tweak 0.08 for spacing
+    )
+  ) %>%
+  ungroup()
+
+
+RA_average <- ggplot(df_plot_RA_average, aes(x = RA_average, y = y,colour = factor(certif))) +
+  geom_point(size = 3) +
+  scale_color_manual(values = fs_colour_plus,
+                     labels = c("Reg. Conv.","Conv.", "Org. Conv."))+
+  scale_x_continuous(breaks = 0:8, limits = c(-0.5, 8.5)) +
+  coord_cartesian(ylim = c(0.6, 1.4)) +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    legend.position = "bottom"
+  ) +
+  labs(x = "RA Score (0–8)", title = "RA Scores per Field average of 4 Last Cultivation Periods",
+       colour = "Management System")
+
+combined_plot <- RA_OSR +  
+  theme(axis.title.x = element_blank())+
+  #axis.text.x  = element_blank())
+  RA_average+
+  plot_layout(ncol = 1, 
+              heights = c(1, 1, 1), 
+              guides ="collect") +
+  plot_annotation(tag_levels = 'a') & 
+  theme(legend.position = "bottom")
+combined_plot
+
+
+ggsave(file.path(output_dir_reg_score,"RA_score_distribution_plots.png"),
+       width = 18, height = 16,units = "cm")
