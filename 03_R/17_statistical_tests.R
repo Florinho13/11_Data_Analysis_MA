@@ -386,3 +386,5 @@ doc <- read_docx() %>%
   body_add_par("", style = "Normal")
 
 print(doc,target = "./02_output/14_thesis_tables/thesis_table_soil_chem.docx")
+
+

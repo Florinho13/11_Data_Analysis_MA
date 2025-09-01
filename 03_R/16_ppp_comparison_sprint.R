@@ -293,3 +293,57 @@ df <- df %>% mutate(group = interaction(farming_system, dataset, sep = "_"))
 # Pairwise Wilcoxon across all system–dataset combos
 pw_all_conc <- pairwise.wilcox.test(df$cumulative_rq, df$group, p.adjust.method = "BH")
 pw_all_conc
+
+
+#3. statistical key figures
+#substances detected
+key_figures_det <- sprint_thesis_combined_freq_plot %>% 
+  group_by(dataset,farming_system) %>% 
+  summarise(med = median(n_detected,na.rm = TRUE),
+            average = mean(n_detected,na.rm = TRUE),
+            minimum = min(n_detected,na.rm = TRUE),
+            maximum = max(n_detected,na.rm = TRUE),
+            sd = sd(n_detected,na.rm = TRUE))
+
+key_figures_det_dataset <- sprint_thesis_combined_freq_plot %>% 
+  group_by(dataset) %>% 
+  summarise(med = median(n_detected,na.rm = TRUE),
+            average = mean(n_detected,na.rm = TRUE),
+            minimum = min(n_detected,na.rm = TRUE),
+            maximum = max(n_detected,na.rm = TRUE),
+            sd = sd(n_detected,na.rm = TRUE))
+
+#total concentrations
+key_figures_conc <- sprint_thesis_combined_tot_conc_plot %>% 
+  group_by(dataset,farming_system) %>% 
+  summarise(med = median(total_concentrations,na.rm = TRUE),
+            average = mean(total_concentrations,na.rm = TRUE),
+            minimum = min(total_concentrations,na.rm = TRUE),
+            maximum = max(total_concentrations,na.rm = TRUE),
+            sd = sd(total_concentrations,na.rm = TRUE))
+
+
+key_figures_conc_dataset <- sprint_thesis_combined_tot_conc_plot %>% 
+  group_by(dataset) %>% 
+  summarise(med = median(total_concentrations,na.rm = TRUE),
+            average = mean(total_concentrations,na.rm = TRUE),
+            minimum = min(total_concentrations,na.rm = TRUE),
+            maximum = max(total_concentrations,na.rm = TRUE),
+            sd = sd(total_concentrations,na.rm = TRUE))
+
+#cumulative RQ
+key_figures_rq <- sprint_thesis_combined_rq_plot %>% 
+  group_by(dataset,farming_system) %>% 
+  summarise(med = median(cumulative_rq,na.rm = TRUE),
+            average = mean(cumulative_rq,na.rm = TRUE),
+            minimum = min(cumulative_rq,na.rm = TRUE),
+            maximum = max(cumulative_rq,na.rm = TRUE),
+            sd = sd(cumulative_rq,na.rm = TRUE))
+
+key_figures_rq_dataset <- sprint_thesis_combined_rq_plot %>% 
+  group_by(dataset) %>% 
+  summarise(med = median(cumulative_rq,na.rm = TRUE),
+            average = mean(cumulative_rq,na.rm = TRUE),
+            minimum = min(cumulative_rq,na.rm = TRUE),
+            maximum = max(cumulative_rq,na.rm = TRUE),
+            sd = sd(cumulative_rq,na.rm = TRUE))
