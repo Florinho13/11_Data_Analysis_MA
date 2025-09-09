@@ -75,7 +75,7 @@ to_long <- function(df){
 }
 
 # --- 2) Fit one LMM per variable: value ~ system + (1|location) ---
-fit_one_overall <- function(long_df, var){
+fit_one <- function(long_df, var){
   dat <- long_df %>% dplyr::filter(variable == var, is.finite(value))
   has_two_sys <- dplyr::n_distinct(dat$system) == 2
   n_loc <- dplyr::n_distinct(dat$location)
@@ -95,53 +95,41 @@ fit_one_overall <- function(long_df, var){
   
   #mixed model
   fit <- tryCatch(
-    
-    nlme:: lme(fixed = value~system,
-               random = ~ 1 | location,
-               data = dat,
-               method = "REML",
-               na.action = na.omit,
-               control = nlme::lmeControl(msMaxIter = 200,msMaxEval = 200)
-    ),
+    lmer(value ~ system + (1|field_id), data = dat, REML = TRUE), # version only considering field as effect
+    #lmer(value ~ system + + (1 + system | location)), #additionally considers the plot variations not possible due to limited data
     error = function(e) NULL
-    # lmer(value ~ system + (1|field_id), data = dat, REML = TRUE), # version only considering field as effect
-    # #lmer(value ~ system + + (1 + system | location)), #additionally considers the plot variations not possible due to limited data
-    # error = function(e) NULL
   )
   
-  # extract fixed effect for "systemRegenerative"
-  if (is.null(fit)) {
+  if (is.null(fit) || isTRUE(lme4::isSingular(fit))) {
     est <- se <- df <- tval <- pvl <- NA_real_
-    AIC_REML <- BIC_REML <- logLik_REML <- AIC_ML <- NA_real_
   } else {
-    tt <- tryCatch(summary(fit)$tTable, error = function(e) NULL)
-    if (is.null(tt)) {
-      est <- se <- df <- tval <- pvl <- NA_real_
-    } else {
-      rn  <- rownames(tt)
-      idx <- which(rn == "systemRegenerative")
-      if (length(idx) == 1) {
-        est  <- as.numeric(tt[idx, "Value"])
-        se   <- as.numeric(tt[idx, "Std.Error"])
-        df   <- as.numeric(tt[idx, "DF"])
-        tval <- as.numeric(tt[idx, "t-value"])
-        pvl  <- as.numeric(tt[idx, "p-value"])
-      } else {
-        est <- se <- df <- tval <- pvl <- NA_real_
-      }
-    }
-    
-    AIC_REML    <- tryCatch(AIC(fit),    error = function(e) NA_real_)
-    # tt <- broom.mixed::tidy(fit, effects = "fixed", conf.int = FALSE) %>%
-    #   dplyr::filter(term == "systemRegenerative")
-    # est <- dplyr::coalesce(tt$estimate, NA_real_)
-    # se  <- dplyr::coalesce(tt$std.error, NA_real_)
-    # df  <- dplyr::coalesce(tt$df, NA_real_)
-    # tval<- dplyr::coalesce(tt$statistic, NA_real_)
-    # pvl <- dplyr::coalesce(tt$p.value, NA_real_)
+    tt <- broom.mixed::tidy(fit, effects = "fixed", conf.int = FALSE) %>%
+      dplyr::filter(term == "systemRegenerative")
+    est <- dplyr::coalesce(tt$estimate, NA_real_)
+    se  <- dplyr::coalesce(tt$std.error, NA_real_)
+    df  <- dplyr::coalesce(tt$df, NA_real_)
+    tval<- dplyr::coalesce(tt$statistic, NA_real_)
+    pvl <- dplyr::coalesce(tt$p.value, NA_real_)
   }
   
   
+  # if (is.null(fit) || isTRUE(lme4::isSingular(fit))) {
+  #   mr <- mean(dat$value[dat$system=="Regenerative"], na.rm=TRUE)
+  #   mc <- mean(dat$value[dat$system=="Conventional"], na.rm=TRUE)
+  #   return(tibble::tibble(
+  #     variable = var, n_obs = n_obs, n_locations = n_loc,
+  #     beta_systemRegenerative = NA_real_, se = NA_real_, df = NA_real_,
+  #     t = NA_real_, p_val = NA_real_,
+  #     mean_regen = mr, mean_conv = mc, mean_diff = mr - mc
+  #   ))
+  # # }
+  # 
+  # # Safe pulls: if a column is absent, set NA_real_
+  # est <- dplyr::coalesce(tt$estimate, NA_real_)
+  # se  <- dplyr::coalesce(tt$std.error, NA_real_)
+  # df  <- dplyr::coalesce(tt$df, NA_real_)
+  # tval<- dplyr::coalesce(tt$statistic, NA_real_)
+  # pvl <- dplyr::coalesce(tt$p.value, NA_real_)
   
   # --- Unpaired Wilcoxon test ---
   wil <- tryCatch(
@@ -176,7 +164,6 @@ fit_one_overall <- function(long_df, var){
     df = df,
     t = tval,
     p_val = pvl,                          # <— renamed
-    AIC_REML = AIC_REML,
     wilcox_W = Wstat,            # Wilcoxon W statistic
     wilcox_p = Wp,
     shap_w = shap_W,
@@ -187,10 +174,10 @@ fit_one_overall <- function(long_df, var){
   )
 }
 
-fit_all_vars_overall <- function(df, domain_label){
+fit_all_vars <- function(df, domain_label){
   long_df <- to_long(df)
   vars <- long_df %>% dplyr::distinct(variable) %>% dplyr::pull(variable)
-  res <- purrr::map_dfr(vars, ~fit_one_overall(long_df, .x)) %>%
+  res <- purrr::map_dfr(vars, ~fit_one(long_df, .x)) %>%
     dplyr::mutate(
       domain = domain_label,
       direction = dplyr::case_when(
@@ -210,25 +197,18 @@ bio_df  <- readxl::read_xlsx("/mnt/data/soil_comb_bio.xlsx")
 chem_df <- readxl::read_xlsx("/mnt/data/soil_comb_chem.xlsx")
 phys_df <- readxl::read_xlsx("/mnt/data/soil_comb_phys.xlsx")
 
-bio_res_compl  <- fit_all_vars_overall(soil_biological_param,  "biological")
-chem_res_compl <- fit_all_vars_overall(soil_chemical_param, "chemical")
-phys_res_compl <- fit_all_vars_overall(soil_physical_param, "physical")
-
-all_res_compl <- bind_rows(bio_res_compl, chem_res_compl, phys_res_compl) %>% 
-  mutate(model = "location_as_random", .after = 2)
-
-
-plant_res_compl <- fit_all_vars_overall(plant_health_param, "plant") %>% 
-  mutate(model = "location_as_random", .after = 2)
+bio_res  <- fit_all_vars(soil_biological_param,  "biological")
+chem_res <- fit_all_vars(soil_chemical_param, "chemical")
+phys_res <- fit_all_vars(soil_physical_param, "physical")
 
 
 
-phi_res_compl <- fit_all_vars_overall(phi_total[,-c(2:4)],"phi") %>% 
-  mutate(model = "location_as_random", .after = 2)
+plant_res <- fit_all_vars(plant_health_param, "plant")
 
+all_res <- bind_rows(bio_res, chem_res, phys_res)
 
-shi_res_compl <- fit_all_vars_overall(scored_soil_data_rq_total[,-c(2:4)],"shi") %>% 
-  mutate(model = "location_as_random", .after = 2)
+phi_res <- fit_all_vars(phi_total[,-c(2:4)],"phi")
+shi_res <- fit_all_vars(scored_soil_data_rq_total[,-c(2:4)],"shi")
 
 
 

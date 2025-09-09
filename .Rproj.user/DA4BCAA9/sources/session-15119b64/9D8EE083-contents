@@ -16,6 +16,7 @@ library(broom)
 library(purrr)
 library(stringr)
 library(lme4)
+library(nlme)
 library(lmerTest)
 library(janitor)
 
@@ -75,7 +76,7 @@ to_long <- function(df){
 }
 
 # --- 2) Fit one LMM per variable: value ~ system + (1|location) ---
-fit_one_overall <- function(long_df, var){
+fit_one_field_in_loc <- function(long_df, var){
   dat <- long_df %>% dplyr::filter(variable == var, is.finite(value))
   has_two_sys <- dplyr::n_distinct(dat$system) == 2
   n_loc <- dplyr::n_distinct(dat$location)
@@ -97,12 +98,12 @@ fit_one_overall <- function(long_df, var){
   fit <- tryCatch(
     
     nlme:: lme(fixed = value~system,
-               random = ~ 1 | location,
+               random = ~ 1 | location/field_id,
                data = dat,
                method = "REML",
                na.action = na.omit,
                control = nlme::lmeControl(msMaxIter = 200,msMaxEval = 200)
-    ),
+               ),
     error = function(e) NULL
     # lmer(value ~ system + (1|field_id), data = dat, REML = TRUE), # version only considering field as effect
     # #lmer(value ~ system + + (1 + system | location)), #additionally considers the plot variations not possible due to limited data
@@ -132,6 +133,7 @@ fit_one_overall <- function(long_df, var){
     }
     
     AIC_REML    <- tryCatch(AIC(fit),    error = function(e) NA_real_)
+  
     # tt <- broom.mixed::tidy(fit, effects = "fixed", conf.int = FALSE) %>%
     #   dplyr::filter(term == "systemRegenerative")
     # est <- dplyr::coalesce(tt$estimate, NA_real_)
@@ -139,58 +141,80 @@ fit_one_overall <- function(long_df, var){
     # df  <- dplyr::coalesce(tt$df, NA_real_)
     # tval<- dplyr::coalesce(tt$statistic, NA_real_)
     # pvl <- dplyr::coalesce(tt$p.value, NA_real_)
-  }
+    }
   
   
+  # if (is.null(fit) || isTRUE(lme4::isSingular(fit))) {
+  #   mr <- mean(dat$value[dat$system=="Regenerative"], na.rm=TRUE)
+  #   mc <- mean(dat$value[dat$system=="Conventional"], na.rm=TRUE)
+  #   return(tibble::tibble(
+  #     variable = var, n_obs = n_obs, n_locations = n_loc,
+  #     beta_systemRegenerative = NA_real_, se = NA_real_, df = NA_real_,
+  #     t = NA_real_, p_val = NA_real_,
+  #     mean_regen = mr, mean_conv = mc, mean_diff = mr - mc
+  #   ))
+  # # }
+  # 
+  # # Safe pulls: if a column is absent, set NA_real_
+  # est <- dplyr::coalesce(tt$estimate, NA_real_)
+  # se  <- dplyr::coalesce(tt$std.error, NA_real_)
+  # df  <- dplyr::coalesce(tt$df, NA_real_)
+  # tval<- dplyr::coalesce(tt$statistic, NA_real_)
+  # pvl <- dplyr::coalesce(tt$p.value, NA_real_)
   
   # --- Unpaired Wilcoxon test ---
-  wil <- tryCatch(
-    wilcox.test(value ~ system, data = dat, exact = FALSE),
-    error = function(e) NULL
-  )
-  if (is.null(wil)) {
-    Wstat <- NA_real_; Wp <- NA_real_
-  } else {
-    Wstat <- unname(wil$statistic)
-    Wp <- wil$p.value
-  }
+    df_fields <- dat %>%
+      dplyr::group_by(system, field_id) %>%
+      dplyr::summarise(field_mean = mean(value, na.rm = TRUE), .groups = "drop")
+  
+  
+    wil <- tryCatch(
+      wilcox.test(field_mean ~ system, data = df_fields, exact = TRUE),
+      error = function(e) NULL
+    )
+    if (is.null(wil)) {
+      Wstat <- NA_real_; Wp <- NA_real_
+    } else {
+      Wstat <- unname(wil$statistic)
+      Wp <- wil$p.value
+    }
   
   # --- Shapiro-Wilk normality test ---
-  shap <- tryCatch(
-    shapiro.test(dat$value),
-    error = function(e) NULL
-  )
-  if (is.null(shap)) {
-    shap_W <- NA_real_; shap_p <- NA_real_
-  } else {
-    shap_W <- shap$statistic
-    shap_p <- shap$p.value
-  }
+    shap <- tryCatch(
+      shapiro.test(dat$value),
+      error = function(e) NULL
+    )
+    if (is.null(shap)) {
+      shap_W <- NA_real_; shap_p <- NA_real_
+    } else {
+      shap_W <- shap$statistic
+      shap_p <- shap$p.value
+    }
   
-  tibble::tibble(
-    variable = var,
-    n_obs = n_obs,
-    n_locations = n_loc,
-    beta_systemRegenerative = est,
-    se = se,
-    df = df,
-    t = tval,
-    p_val = pvl,                          # <— renamed
-    AIC_REML = AIC_REML,
-    wilcox_W = Wstat,            # Wilcoxon W statistic
-    wilcox_p = Wp,
-    shap_w = shap_W,
-    shap_p = shap_p,
-    mean_regen = mr,
-    mean_conv  = mc,
-    mean_diff  = mr - mc
-  )
-}
+    tibble::tibble(
+      variable = var,
+      n_obs = n_obs,
+      n_locations = n_loc,
+      beta_systemRegenerative = est,
+      se = se,
+      df = df,
+      t = tval,
+      p_val = pvl,                          # <— renamed
+      AIC_REML = AIC_REML,
+      wilcox_W = Wstat,            # Wilcoxon W statistic
+      wilcox_p = Wp,
+      shap_w = shap_W,
+      shap_p = shap_p,
+      mean_regen = mr,
+      mean_conv  = mc,
+      mean_diff  = mr - mc
+    )
+  }
 
-fit_all_vars_overall <- function(df, domain_label){
+fit_all_vars_field_in_loc <- function(df, domain_label){
   long_df <- to_long(df)
   vars <- long_df %>% dplyr::distinct(variable) %>% dplyr::pull(variable)
-  res <- purrr::map_dfr(vars, ~fit_one_overall(long_df, .x)) %>%
+  res <- purrr::map_dfr(vars, ~fit_one_field_in_loc(long_df, .x)) %>%
     dplyr::mutate(
       domain = domain_label,
       direction = dplyr::case_when(
@@ -210,27 +234,39 @@ bio_df  <- readxl::read_xlsx("/mnt/data/soil_comb_bio.xlsx")
 chem_df <- readxl::read_xlsx("/mnt/data/soil_comb_chem.xlsx")
 phys_df <- readxl::read_xlsx("/mnt/data/soil_comb_phys.xlsx")
 
-bio_res_compl  <- fit_all_vars_overall(soil_biological_param,  "biological")
-chem_res_compl <- fit_all_vars_overall(soil_chemical_param, "chemical")
-phys_res_compl <- fit_all_vars_overall(soil_physical_param, "physical")
-
-all_res_compl <- bind_rows(bio_res_compl, chem_res_compl, phys_res_compl) %>% 
-  mutate(model = "location_as_random", .after = 2)
-
-
-plant_res_compl <- fit_all_vars_overall(plant_health_param, "plant") %>% 
-  mutate(model = "location_as_random", .after = 2)
+bio_res_field_in_loc  <- fit_all_vars_field_in_loc(soil_biological_param,  "biological")
+chem_res_field_in_loc <- fit_all_vars_field_in_loc(soil_chemical_param, "chemical")
+phys_res_field_in_loc <- fit_all_vars_field_in_loc(soil_physical_param, "physical")
 
 
 
-phi_res_compl <- fit_all_vars_overall(phi_total[,-c(2:4)],"phi") %>% 
-  mutate(model = "location_as_random", .after = 2)
+all_res_field_in_loc <- bind_rows(bio_res_field_in_loc, chem_res_field_in_loc, phys_res_field_in_loc) %>% 
+  mutate(model = "field_in_loc_as_random", .after = 2)
+#only valid after running 17, 17_2
+all_soil_res_models <- bind_rows(all_res_compl,all_res_field,all_res_field_in_loc)
+write.xlsx(all_soil_res_models,"./02_output/12_statistical_tests/soil_mixed_model_tests.xlsx")
 
 
-shi_res_compl <- fit_all_vars_overall(scored_soil_data_rq_total[,-c(2:4)],"shi") %>% 
-  mutate(model = "location_as_random", .after = 2)
+plant_res_field_in_loc <- fit_all_vars_field_in_loc(plant_health_param, "plant") %>% 
+  mutate(model = "field_in_loc_as_random", .after = 2)
+
+all_plant_res_models <- bind_rows(plant_res_compl,plant_res_field,plant_res_field_in_loc)
+write.xlsx(all_plant_res_models,"./02_output/12_statistical_tests/plant_mixed_model_tests.xlsx")
+
+phi_res_field_in_loc <- fit_all_vars_field_in_loc(phi_total[,-c(2:4)],"phi") %>% 
+  mutate(model = "field_in_loc_as_random", .after = 2)
 
 
+all_phi_res_models <- bind_rows(phi_res_compl, phi_res_field, phi_res_field_in_loc)
+write.xlsx(all_phi_res_models,"./02_output/12_statistical_tests/phi_mixed_model_tests.xlsx")
+
+shi_res_field_in_loc <- fit_all_vars_field_in_loc(scored_soil_data_rq_total[,-c(2:4)],"shi") %>% 
+  mutate(model = "field_in_loc_as_random", .after = 2)
+
+write.xlsx(all_shi_res_model,"./02_output/12_statistical_tests/shi_mixed_model_tests.xlsx")
+
+
+all_shi_res_model <- bind_rows(shi_res_compl,shi_res_field,shi_res_field_in_loc)
 
 write.csv(all_res,"./02_output/12_statistical_tests/mixed_model_tests.csv")
 write.csv(plant_res,"./02_output/12_statistical_tests/mixed_model_plant_tests.csv")
@@ -277,7 +313,8 @@ ppp_accumulated_risk_per_subst <- soil_risk %>%
   group_by(ppp_compound) %>% 
   summarise(sum(risk_quotient))
 
-ppp_res <- fit_all_vars(soil_ppp_summary,"Pesticide")
+ppp_res_field_in_loc <- fit_all_vars_field_in_loc(soil_ppp_summary,"Pesticide")
+write.xlsx(ppp_res,"./02_output/12_statistical_tests/field_in_loc_mixed_model_tests.xlsx")
 
 # --- 4) Quick glance: strongest effects (raw p) ---
 all_res %>%
