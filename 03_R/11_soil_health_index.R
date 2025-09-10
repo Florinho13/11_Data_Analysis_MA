@@ -163,12 +163,12 @@ loc_labels <- shi_cleeveland_rq_plot %>%
 
 #3. generat cleeveland dot plot
 location_labels <- c(
-  "1" = "Freudwil (R = 5.35) <sup>1.)</sup>",
-  "2" = "Niederhasli (R = 4.23, C = 3.45)",
-  "3" = "Läufelfingen (R = 6.27, C = 5.72)",
-  "4" = "Heimenhaus. (R = 5.44, C = 3.81)",
-  "5" = "Heimiswil (R = 4.84, C = 4.00)",
-  "6" = "Ueberstorf (R = 4.83, C = 3.62)"
+  "1" = "Site 1 (R = 5.35) <sup>1.)</sup>",
+  "2" = "Site 2 (R = 4.23, C = 3.45)",
+  "3" = "Site 3 (R = 6.27, C = 5.72)",
+  "4" = "Site 4 (R = 5.44, C = 3.81)",
+  "5" = "Site 5 (R = 4.84, C = 4.00)",
+  "6" = "Site 6 (R = 4.83, C = 3.62)"
 )
 
 
@@ -197,7 +197,7 @@ shi_plot <- ggplot(shi_cleeveland) +
 shi_plot
 
 
-ggsave("./02_output/08_shi/shi_cleeveland_plot.png",plot = shi_plot,
+ggsave("./02_output/08_shi/shi_cleeveland_plot_siteversion.png",plot = shi_plot,
        width = 19, height=27, units = "cm", dpi = 300)
 
 
@@ -239,5 +239,5 @@ shi_plot_rq <- ggplot(shi_cleeveland_rq_plot) +
 shi_plot_rq
 
 
-ggsave("./02_output/08_shi/shi_cleeveland_plot_MA.png",plot = shi_plot_rq,
+ggsave("./02_output/08_shi/shi_cleeveland_plot_MA_siteversion.png",plot = shi_plot_rq,
        width = 19, height=27, units = "cm", dpi = 300)

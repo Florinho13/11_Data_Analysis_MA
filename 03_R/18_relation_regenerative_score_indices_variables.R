@@ -33,8 +33,8 @@ plant_health_param <- read.csv("./02_output/09_plant_health/combined_plant_data_
 regenerative_score <- read.xlsx("./01_input/regenerative_score_2025_08_16.xlsx",sheet = 1)
 
 plant_health <- read.xlsx("./02_output/09_plant_health/plant_health_total.xlsx")
-soil_health <- read.xlsx("./02_output/08_SHI/shi_total_rq.xlsx")
-
+# soil_health <- read.xlsx("./02_output/08_SHI/shi_total_rq.xlsx")
+soil_health <- read.xlsx("./02_output/08_SHI/shi_total_rq_no_CNratio.xlsx")
 
 
 #define output directories
@@ -97,7 +97,7 @@ shapiro.test(soil_chemical_param$pH) #phi_total 0.01736 no normal distr, shi_tot
 combined_data_soil <- soil_biological_param %>% 
   left_join(soil_chemical_param,by="sample_name") %>% 
   left_join(soil_physical_param,by="sample_name") %>% 
-  left_join(soil_health[,c(1,13)],by="sample_name")
+  left_join(soil_health[,c(1,12)],by="sample_name")
 
 combined_data_plant <- plant_health_param %>%
   left_join(plant_health[,c(1,10,11)],by="sample_name")
@@ -120,7 +120,7 @@ combined_plant_soil_mean <- combined_plant_soil %>%
 combined_plant_soil_ra <- combined_plant_soil_mean %>% 
   left_join(regenerative_score_yr1_average, by = join_by("field_id"=="participant"))
 
-write.xlsx(combined_plant_soil_ra,file.path(output_dir_reg_score,"combined_plant_soil_ra.xlsx"))
+write.xlsx(combined_plant_soil_ra,file.path(output_dir_reg_score,"combined_plant_soil_ra_no_CNratio_scor.xlsx"))
 
 write.xlsx(combined_plant_soil_ra_plot,file.path(output_dir_reg_score,"combined_plant_soil_ra_plot.xlsx"))
 
@@ -233,6 +233,15 @@ overview_stat_plant_soil <- long_comb_plant_soil %>%
 
 write.xlsx(overview_stat_plant_soil,file.path(output_dir_reg_score,"overview_stat_all_variables.xlsx"))
 
+overview_stat_plant_soil_variable <- long_comb_plant_soil %>% 
+  group_by(variable) %>% 
+  summarise(med = median(value,na.rm = TRUE),
+            average = mean(value,na.rm = TRUE),
+            minimum = min(value,na.rm = TRUE),
+            maximum = max(value,na.rm = TRUE),
+            sd = sd(value,na.rm = TRUE))
+
+write.xlsx(overview_stat_plant_soil_variable,file.path(output_dir_reg_score,"overview_stat_all_variables_overall.xlsx"))
 
 
 #5. RA score distribution plots######

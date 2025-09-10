@@ -133,7 +133,13 @@ fit_one_field_in_loc <- function(long_df, var){
     }
     
     AIC_REML    <- tryCatch(AIC(fit),    error = function(e) NA_real_)
-  
+    
+    qqfile <- tryCatch(
+      save_qqplot_lme(fit, variable = var,
+                      model_label = "value ~ system + (1 | location)"),
+      error = function(e) NA_character_
+    )
+    
     # tt <- broom.mixed::tidy(fit, effects = "fixed", conf.int = FALSE) %>%
     #   dplyr::filter(term == "systemRegenerative")
     # est <- dplyr::coalesce(tt$estimate, NA_real_)
@@ -229,14 +235,22 @@ fit_all_vars_field_in_loc <- function(df, domain_label){
   res
 }
 
+fit_all_vars_field_in_loc_qq <- function(df, domain_label, qq_out_dir = "./qqplots_overall"){
+  long_df <- to_long(df)
+  vars <- long_df %>% dplyr::distinct(variable) %>% dplyr::pull(variable)
+  purrr::map_dfr(vars, ~fit_one_field_in_loc(long_df, .x))%>%
+    # ... mutate/arrange/etc ...
+    dplyr::mutate(p_adj_fdr = p.adjust(p_val, method = "fdr"))
+}
+
 # --- 3) Run for your three files (or swap in your in-memory data frames) ---
 bio_df  <- readxl::read_xlsx("/mnt/data/soil_comb_bio.xlsx")
 chem_df <- readxl::read_xlsx("/mnt/data/soil_comb_chem.xlsx")
 phys_df <- readxl::read_xlsx("/mnt/data/soil_comb_phys.xlsx")
 
-bio_res_field_in_loc  <- fit_all_vars_field_in_loc(soil_biological_param,  "biological")
-chem_res_field_in_loc <- fit_all_vars_field_in_loc(soil_chemical_param, "chemical")
-phys_res_field_in_loc <- fit_all_vars_field_in_loc(soil_physical_param, "physical")
+bio_res_field_in_loc  <- fit_all_vars_field_in_loc_qq(soil_biological_param,  "biological")
+chem_res_field_in_loc <- fit_all_vars_field_in_loc_qq(soil_chemical_param, "chemical")
+phys_res_field_in_loc <- fit_all_vars_field_in_loc_qq(soil_physical_param, "physical")
 
 
 
@@ -314,7 +328,7 @@ ppp_accumulated_risk_per_subst <- soil_risk %>%
   summarise(sum(risk_quotient))
 
 ppp_res_field_in_loc <- fit_all_vars_field_in_loc(soil_ppp_summary,"Pesticide")
-write.xlsx(ppp_res,"./02_output/12_statistical_tests/field_in_loc_mixed_model_tests.xlsx")
+write.xlsx(ppp_res,"./02_output/12_statistical_tests/pesticides_field_in_loc_mixed_model_tests.xlsx")
 
 # --- 4) Quick glance: strongest effects (raw p) ---
 all_res %>%
@@ -447,3 +461,25 @@ doc <- read_docx() %>%
 print(doc,target = "./02_output/14_thesis_tables/thesis_table_soil_chem.docx")
 
 
+#residual qqplot
+safe_name <- function(x) str_replace_all(x, "[^A-Za-z0-9_]+", "_")
+
+save_qqplot_lme <- function(fit, variable, model_label,
+                            out_dir = "./02_output/12_statistical_tests/01_residual_qq_field_in_loc",
+                            width = 5, height = 5, dpi = 300) {
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  # normalized residuals from nlme::lme
+  res <- resid(fit, type = "normalized")
+  dd  <- data.frame(resid = as.numeric(res))
+  
+  p <- ggplot(dd, aes(sample = resid)) +
+    stat_qq() + stat_qq_line() +
+    labs(title = paste0("QQ-plot: ", variable),
+         subtitle = model_label,
+         x = "Theoretical quantiles", y = "Sample quantiles") +
+    theme_minimal(base_size = 12)
+  
+  path <- file.path(out_dir, paste0(safe_name(variable), "_qq.png"))
+  ggsave(path, plot = p, width = width, height = height, dpi = dpi)
+  path
+}
