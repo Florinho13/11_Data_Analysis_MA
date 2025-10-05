@@ -274,10 +274,10 @@ phi_res_field_in_loc <- fit_all_vars_field_in_loc(phi_total[,-c(2:4)],"phi") %>%
 all_phi_res_models <- bind_rows(phi_res_compl, phi_res_field, phi_res_field_in_loc)
 write.xlsx(all_phi_res_models,"./02_output/12_statistical_tests/phi_mixed_model_tests.xlsx")
 
-shi_res_field_in_loc <- fit_all_vars_field_in_loc(scored_soil_data_rq_total[,-c(2:4)],"shi") %>% 
+shi_res_field_in_loc <- fit_all_vars_field_in_loc(scored_soil_data_rq_total_no_CN[,-c(2:4)],"shi") %>% 
   mutate(model = "field_in_loc_as_random", .after = 2)
 
-write.xlsx(all_shi_res_model,"./02_output/12_statistical_tests/shi_mixed_model_tests.xlsx")
+write.xlsx(shi_res_field_in_loc,"./02_output/12_statistical_tests/shi_mixed_model_tests_no_CN.xlsx")
 
 
 all_shi_res_model <- bind_rows(shi_res_compl,shi_res_field,shi_res_field_in_loc)

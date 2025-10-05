@@ -430,4 +430,24 @@ doc <- read_docx() %>%
 
 print(doc,target = "./02_output/14_thesis_tables/thesis_table_soil_chem.docx")
 
+#residual qqplot
+safe_name <- function(x) str_replace_all(x, "[^A-Za-z0-9_]+", "_")
 
+save_qqplot_lme <- function(fit, variable, model_label, out_dir = "./qqplots",
+                            width = 5, height = 5, dpi = 300) {
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  # normalized residuals from nlme::lme
+  res <- resid(fit, type = "normalized")
+  dd  <- data.frame(resid = as.numeric(res))
+  
+  p <- ggplot(dd, aes(sample = resid)) +
+    stat_qq() + stat_qq_line() +
+    labs(title = paste0("QQ-plot: ", variable),
+         subtitle = model_label,
+         x = "Theoretical quantiles", y = "Sample quantiles") +
+    theme_minimal(base_size = 12)
+  
+  path <- file.path(out_dir, paste0(safe_name(variable), "_qq.png"))
+  ggsave(path, plot = p, width = width, height = height, dpi = dpi)
+  path
+}
